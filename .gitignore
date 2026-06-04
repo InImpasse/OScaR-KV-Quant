@@ -1,0 +1,37 @@
+# Local notes and generated files
+PROJECT_CONTEXT.md
+.cache/
+.codex/
+.agents/
+
+# Python / virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+.venv-*/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Model files and experiment outputs
+*.gguf
+models/
+checkpoints/
+runs/
+results/
+
+# Installers and archives
+*.deb
+*.tar
+*.tar.gz
+*.zip
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# third_party/OSCAR build artifacts
+third_party/OSCAR/build/
+third_party/OSCAR/**/*.so
