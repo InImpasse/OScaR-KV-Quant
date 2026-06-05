@@ -101,6 +101,19 @@ larger and may require CPU execution or partial GPU offload.
 
 The llama.cpp branch already ships Qwen3-4B-Thinking-2507 rotation files and a
 GGUF baking script under `third_party/OSCAR/oscar-rotation/`. Those rotations are
-model-specific. Gemma and Granite can test llama.cpp KV-cache formats, but they
-are not calibrated OSCAR runs unless matching rotation tensors are generated and
-integrated for those models.
+model-specific.
+
+**Granite:** this workspace’s OSCAR fork loads optional per-layer
+`blk.{i}.attn_k_rot.weight` / `attn_v_rot.weight` for **granite** architectures
+(post-RoPE, same graph semantics as `qwen3.cpp`). After you obtain
+`k_rotation_qqt_r_h_pbr.pt` and `v_rotation_sst_r_h_pbr.pt` (same tensor layout
+as the Qwen3 calibration — one `head_dim × head_dim` matrix per layer), bake them
+with `third_party/OSCAR/oscar-rotation/export_rot_kv_gguf.py` into a
+`*-rot-kv.gguf`. Producing those `.pt` files is **not** in this repo: upstream
+OSCAR `README.md` describes GPQA activation dumps (e.g. via sglang) and the
+**CoQuant `rotation/`** scripts for the `METHOD=qqt_sst` step; you need that
+toolchain or an equivalent on your GPU.
+
+**Gemma** and any model without the optional rotation tensors can still test KV
+cache formats, but they are not calibrated OSCAR runs until matching rotations
+exist and the model graph applies them.

@@ -29,4 +29,5 @@ exec "$LLAMA_CLI" \
   -ngl "$N_GPU_LAYERS" \
   --cache-type-k "$KV_TYPE" \
   --cache-type-v "$KV_TYPE" \
+  -no-cnv \
   -p "$PROMPT"

@@ -1,0 +1,22 @@
+The KV cache benchmark fixture is intentionally plain English text. It is used
+only to exercise perplexity pipelines, summary parsing, and regression gates.
+It is not a language-model quality benchmark.
+
+Low-bit key and value cache formats reduce storage, but every backend must
+decode the same representation that was written. A q2_0 row stores Lloyd-Max
+two-bit centroid codes, a per-block scale, and a mean value. Staged CUDA modes
+may use group centering, an optional orthonormal Hadamard transform, and an
+optional clipping ratio before quantization.
+
+The benchmark scripts compare F16, Q8, Q4, Q2, high-precision sink and recent
+cache modes, and asymmetric key/value combinations. A useful optimization must
+show memory savings, acceptable prompt processing speed, acceptable generation
+speed, and stable perplexity relative to the F16 baseline.
+
+Granite and Gemma are evaluated at short, medium, and long contexts. Short
+contexts often hide key-value cache savings behind model weights and runtime
+allocations. Long contexts make cache storage more visible, but kernel shape and
+allocator behavior can still dominate measured peak memory.
+
+This fixture stays stable so repeated smoke runs produce the same corpus hash
+unless this file or the repeat count changes.
