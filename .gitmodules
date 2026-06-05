@@ -1,0 +1,3 @@
+[submodule "third_party/OSCAR"]
+	path = third_party/OSCAR
+	url = /home/lenovo/project/OSCAR

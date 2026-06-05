@@ -1,0 +1,30 @@
+# Local context and weights (do not commit)
+PROJECT_CONTEXT.md
+checkpoints/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+.venv-*/
+venv/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.deb
+
+# Benchmark outputs
+results/
+.cache/
+
+# Third-party build artifacts (submodule may generate)
+third_party/OSCAR/**/*.so
+third_party/OSCAR/**/build/

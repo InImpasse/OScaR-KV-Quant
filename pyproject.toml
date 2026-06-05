@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oscar-kv-quant"
+version = "0.1.0"
+description = "OSCAR (#1) KV validation harness for Granite / Gemma4 on consumer GPUs"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "torch>=2.5",
+  "httpx>=0.27",
+  "ninja>=1.11",
+  "socksio>=1.0",
+  "transformers>=4.45",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.4"]
+
+[project.scripts]
+oscar-kv-probe = "oscar_kv_quant.probe:main"
+oscar-kv-bench = "oscar_kv_quant.bench:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+oscar_kv_quant = ["py.typed"]
+
+[tool.oscar_kv_quant.environment]
+source = "FutureMLS-Lab/OSCAR README + bundled sglang-research/python/pyproject.toml"
+python = "3.12"
+cuda = "12.8 or 12.9 with nvcc on PATH"
+recommended_gpu_upstream = "H100 80GB for 4B/8B official runs; RTX 5050 8GB is best-effort smoke/bench only"
+notes = [
+  "Use one environment for dump and eval, matching the OSCAR upstream layout.",
+  "CUDA_HOME should point to the CUDA toolkit matching the installed PyTorch CUDA build.",
+  "Blackwell sm120 support depends on SGLang, flashinfer, flash-attn, sglang-kernel and Triton compatibility.",
+  "SGLang exposes bf16/fp8/fp4/int2 KV dtypes; int8/int4 in this repo are aliases to fp8/fp4 comparison modes.",
+]
+
+[tool.oscar_kv_quant.environment.sglang_research_pins]
+torch = "2.9.1"
+transformers = "5.3.0"
+cuda-python = "12.9"
+flashinfer_python = "0.6.7.post3"
+flashinfer_cubin = "0.6.7.post3"
+flash-attn-4 = ">=4.0.0b4"
+sglang-kernel = "0.4.1"
+kernels = "0.13.0"
+torchao = "0.9.0"
+torchaudio = "2.9.1"
