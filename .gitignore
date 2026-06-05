@@ -23,6 +23,7 @@ build/
 
 # Benchmark outputs
 results/
+runs/
 .cache/
 
 # Third-party build artifacts (submodule may generate)
