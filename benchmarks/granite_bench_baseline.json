@@ -1,0 +1,118 @@
+{
+  "updated": "2026-06-09",
+  "model": "Granite 4.0 1B",
+  "hardware": "WSL2 + RTX 5050 Laptop 8GB (SM120)",
+  "run_id": "results/granite_bench_matrix/20260608_fill",
+  "protocol": {
+    "tool": "./scripts/bench_matrix.sh",
+    "presets": {"short": 512, "medium": 2048, "long": 8192, "32k": 32768},
+    "modes": ["bf16", "plain_int2", "oscar_int2"],
+    "fair_32k": "--max-total-tokens 38272"
+  },
+  "official_reference": {
+    "source": "https://github.com/FutureMLS-Lab/OSCAR",
+    "hardware": "H100 80GB, CUDA 12.8/12.9",
+    "focus": "32K-context generation; KV near ~2.28 BPE vs BF16 16.00",
+    "note": "Official repo does not publish Granite 1B bench rows. Use as qualitative KV/accuracy reference only."
+  },
+  "local_granite": {
+    "short_512": {
+      "status": "complete",
+      "csv": "results/granite_bench_matrix/20260608_fill/short/bench_granite_20260608T101312Z.csv",
+      "bf16": {
+        "steady_decode_tok_s": 46.54,
+        "peak_mib_delta": 3679,
+        "kv_theory_gib": 0.044,
+        "runtime_kv_pool": "K 0.06 GB + V 0.06 GB"
+      },
+      "plain_int2": {
+        "steady_decode_tok_s": 33.27,
+        "peak_mib_delta": 3691,
+        "kv_theory_gib": 0.0055,
+        "runtime_kv_pool": "K 0.01 GB + V 0.01 GB"
+      },
+      "oscar_int2": {
+        "steady_decode_tok_s": 50.31,
+        "peak_mib_delta": 3729,
+        "kv_theory_gib": 0.099,
+        "runtime_kv_pool": "K 0.05 GB + V 0.05 GB"
+      }
+    },
+    "medium_2048": {
+      "status": "complete",
+      "csv": "results/granite_bench_matrix/20260608_fill/medium/bench_granite_20260608T101448Z.csv",
+      "bf16": {
+        "steady_decode_tok_s": 43.12,
+        "peak_mib_delta": 3709,
+        "kv_theory_gib": 0.161,
+        "runtime_kv_pool": "K 0.12 GB + V 0.12 GB"
+      },
+      "plain_int2": {
+        "steady_decode_tok_s": 32.83,
+        "peak_mib_delta": 3696,
+        "kv_theory_gib": 0.020,
+        "runtime_kv_pool": "K 0.02 GB + V 0.02 GB"
+      },
+      "oscar_int2": {
+        "steady_decode_tok_s": 47.30,
+        "peak_mib_delta": 3897,
+        "kv_theory_gib": 0.116,
+        "runtime_kv_pool": "K 0.06 GB + V 0.06 GB"
+      }
+    },
+    "long_8192": {
+      "status": "complete",
+      "csv": "results/granite_bench_matrix/20260608_fill/long/bench_granite_20260608T101628Z.csv",
+      "bf16": {
+        "steady_decode_tok_s": 40.33,
+        "peak_mib_delta": 4237,
+        "kv_theory_gib": 0.630,
+        "runtime_kv_pool": "K 0.36 GB + V 0.36 GB"
+      },
+      "plain_int2": {
+        "steady_decode_tok_s": 31.58,
+        "peak_mib_delta": 3671,
+        "kv_theory_gib": 0.079,
+        "runtime_kv_pool": "K 0.04 GB + V 0.04 GB"
+      },
+      "oscar_int2": {
+        "steady_decode_tok_s": 48.38,
+        "peak_mib_delta": 3895,
+        "kv_theory_gib": 0.182,
+        "runtime_kv_pool": "K 0.09 GB + V 0.09 GB"
+      }
+    },
+    "32k_32768": {
+      "status": "complete",
+      "csv": "results/granite_bench_matrix/20260608_fill/32k/bench_granite_20260608T101905Z.csv",
+      "bf16": {
+        "request_tok_s": 29.66,
+        "steady_decode_tok_s": 29.28,
+        "peak_mib_delta": 6466,
+        "kv_theory_gib": 2.505,
+        "runtime_kv_pool": "K 1.46 GB + V 1.46 GB"
+      },
+      "plain_int2": {
+        "request_tok_s": 27.08,
+        "steady_decode_tok_s": 24.74,
+        "peak_mib_delta": 5786,
+        "kv_theory_gib": 0.313,
+        "runtime_kv_pool": "K 0.18 GB + V 0.18 GB",
+        "note": "With --max-total-tokens 38272 cap"
+      },
+      "oscar_int2": {
+        "request_tok_s": 26.78,
+        "steady_decode_tok_s": 36.26,
+        "flush_decode_tok_s": 17.05,
+        "peak_mib_delta": 5826,
+        "kv_theory_gib": 0.494,
+        "runtime_kv_pool": "K 0.25 GB + V 0.25 GB"
+      }
+    }
+  },
+  "coverage_summary": {
+    "complete_presets": ["short_512", "medium_2048", "long_8192", "32k_32768"],
+    "pending_presets": [],
+    "refresh_command": "./scripts/bench_matrix.sh --tag $(date +%Y%m%d)"
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "updated": "2026-06-09",
+  "model": "Granite 4.0 1B",
+  "hardware": "WSL2 + RTX 5050 Laptop 8GB (SM120)",
+  "baseline_note": "Granite uses bf16 compute; BF16/auto KV is the full-precision baseline.",
+  "official_reference": {
+    "source": "https://github.com/FutureMLS-Lab/OSCAR",
+    "benchmarks": ["GPQA", "HumanEval", "LiveCodeBench v6", "AIME 25", "MATH-500"],
+    "protocol": "Mean across five benchmarks; five repeats per cell; 32K max generation.",
+    "example_qwen3_8b_mean": {
+      "bf16": 70.84,
+      "naive_int2": 0.0,
+      "quarot_int2": 10.14,
+      "oscar_int2": 69.42,
+      "unit": "percent_mean_across_benchmarks"
+    },
+    "kv_compression_note": "Official OSCAR INT2 lands near ~2.28 BPE vs 16.00 BF16 at 128K context (~7x KV storage reduction in paper tables)."
+  },
+  "local_granite": {
+    "GPQA": {
+      "target_examples": 198,
+      "measured_examples": 198,
+      "status": "complete",
+      "run_date": "2026-06-08",
+      "suite": "repo_style_accuracy",
+      "bf16": {
+        "accuracy": 0.2323,
+        "answer_rate": 1.0,
+        "run_dir": "rotation/granite-4.0-1b/GPQA/eval_bf16_paper_198_20260608T130940"
+      },
+      "plain_int2": {
+        "accuracy": 0.1566,
+        "answer_rate": 0.47,
+        "delta_vs_bf16": -0.0758,
+        "run_dir": "rotation/granite-4.0-1b/GPQA/eval_int2_suite_20260608T141946"
+      },
+      "oscar_int2": {
+        "accuracy": 0.2424,
+        "answer_rate": 1.0,
+        "delta_vs_bf16": 0.0101,
+        "run_dir": "rotation/granite-4.0-1b/GPQA/eval_oscar_paper_198_20260608T131300"
+      }
+    },
+    "HumanEval": {
+      "target_examples": 164,
+      "status": "partial",
+      "run_date": "2026-06-08",
+      "suite": "eval_accuracy_suite.sh --tag 20260608_fill",
+      "bf16": {
+        "measured_examples": 164,
+        "status": "complete",
+        "pass@1": 0.3183,
+        "pass@5": 0.3232,
+        "latency_sec": 10033.9,
+        "output_throughput_tok_s": 77.18,
+        "delta_vs_bf16": 0.0,
+        "run_dir": "rotation/granite-4.0-1b/HUMANEVAL/eval_bf16_n164_20260608_fill"
+      },
+      "plain_int2": {
+        "measured_examples": 164,
+        "status": "complete",
+        "pass@1": 0.0,
+        "pass@5": 0.0,
+        "latency_sec": 18185.8,
+        "output_throughput_tok_s": 86.56,
+        "delta_vs_bf16": -0.3183,
+        "run_dir": "rotation/granite-4.0-1b/HUMANEVAL/eval_int2_n164_20260608_fill"
+      },
+      "oscar_int2": {
+        "measured_examples": 61,
+        "status": "failed_partial",
+        "pass@1": null,
+        "failure": "SGLang MIXED_KV_IDLE_LEAK / token_to_kv_pool_allocator memory leak at example 61; server exited; subsequent requests returned Connection error",
+        "failure_time": "2026-06-09T02:59:45",
+        "run_dir": "rotation/granite-4.0-1b/HUMANEVAL/eval_oscar-int2_n164_20260608_fill",
+        "note": "Do not use partial runner output as accuracy; rerun required after leak fix or server restart"
+      }
+    },
+    "MATH-500": {
+      "target_examples": 500,
+      "measured_examples": 20,
+      "status": "smoke_only",
+      "run_date": "2026-06-08",
+      "bf16": {"accuracy": 0.05, "run_dir": "rotation/granite-4.0-1b/MATH500/eval_bf16_n20_20260608T163400"},
+      "plain_int2": {"accuracy": 0.0, "delta_vs_bf16": -0.05, "run_dir": "rotation/granite-4.0-1b/MATH500/eval_int2_n20_20260608T164000"},
+      "oscar_int2": {"accuracy": 0.0, "delta_vs_bf16": -0.05, "run_dir": "rotation/granite-4.0-1b/MATH500/eval_oscar_n20_relaxed_20260608T164500"},
+      "note": "Full 500-example run blocked behind HumanEval suite completion"
+    },
+    "LiveCodeBench_v6": {
+      "target_examples": "release_v6_full",
+      "measured_examples": 0,
+      "status": "not_run",
+      "harness": "rotation/granite-4.0-1b/eval_lcb_v6_granite.sh"
+    },
+    "AIME_25": {
+      "target_examples": "full",
+      "measured_examples": 0,
+      "status": "not_run",
+      "harness": "eval_simple_suite_granite.sh --task aime25"
+    }
+  },
+  "coverage_summary": {
+    "complete_three_mode": ["GPQA"],
+    "partial": ["HumanEval"],
+    "smoke_only": ["MATH-500"],
+    "not_run": ["LiveCodeBench_v6", "AIME_25"]
+  }
+}
