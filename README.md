@@ -111,6 +111,8 @@ Start by verifying the host and the Granite BF16 path:
 
 In a healthy probe, CUDA is available, the RTX 5050 is detected, and the output includes `sglang_import_ok: true` and `flashinfer_import_ok: true`.
 
+If `--try-model-server` fails with `RuntimeError: Cannot find any model weights` even though `model.safetensors` exists, the directory often contains a **shard-style** `model.safetensors.index.json` (referencing `model-00001-of-00002.safetensors`, …) while only a **single** consolidated `model.safetensors` is on disk. Re-run `./scripts/download_models.sh granite` so the script can move the stale index aside, or manually rename/remove `model.safetensors.index.json` once you confirm the consolidated file is complete.
+
 Then probe INT2:
 
 ```bash

@@ -148,6 +148,16 @@ missing_refs = [name for name in referenced_files if not (target / name).is_file
 if not missing_refs:
     raise SystemExit(0)
 
+any_shard_present = any((target / name).is_file() for name in referenced_files)
+if any_shard_present:
+    print(
+        f"In {target}: index references missing shards {missing_refs!r} "
+        "but other shard files exist; re-download the model or fix the layout.",
+        file=sys.stderr,
+    )
+    raise SystemExit(0)
+
+# All shard filenames from the index are absent (common: only model.safetensors was kept).
 try:
     from safetensors import safe_open
 
@@ -157,10 +167,11 @@ except Exception as exc:
     print(f"Could not inspect {consolidated_file}: {exc}", file=sys.stderr)
     raise SystemExit(0)
 
-if consolidated_keys != set(weight_map):
+needed_keys = set(weight_map.keys())
+if not needed_keys <= consolidated_keys:
     print(
-        f"Found {consolidated_file.name} and stale index refs, but key sets differ; "
-        "leaving files unchanged.",
+        f"{consolidated_file.name} does not contain all tensors listed in the index "
+        f"({len(needed_keys - consolidated_keys)} missing); leaving index unchanged.",
         file=sys.stderr,
     )
     raise SystemExit(0)
@@ -173,7 +184,7 @@ while backup.exists():
 index_file.rename(backup)
 print(
     f"Renamed stale {index_file.name} -> {backup.name}; "
-    f"using consolidated {consolidated_file.name}."
+    f"shard files from index were absent; using consolidated {consolidated_file.name}."
 )
 PY
   }
