@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import random
+import signal
 import subprocess
 import sys
 import time
@@ -33,6 +35,7 @@ def trial(
     mem_frac: float,
     triton_int2: bool,
     port: int,
+    trial_timeout: float | None,
 ) -> tuple[bool, str]:
     _ensure_results_parent(results_dir)
     before = {_latest_csv(results_dir)}
@@ -71,15 +74,34 @@ def trial(
             "--decode-attention-backend",
             "triton",
         ]
-    proc = subprocess.run(
+    proc = subprocess.Popen(
         cmd,
         cwd=str(root),
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
+        start_new_session=True,
     )
+    try:
+        stdout, stderr = proc.communicate(timeout=trial_timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            stdout, stderr = proc.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            stdout, stderr = proc.communicate()
+        tail = ((stderr or "")[-400:] + (stdout or "")[-400:]).replace("\n", "\\n")
+        return False, f"trial_timeout_sec={trial_timeout} tail={tail!r}"
     after = _latest_csv(results_dir)
     if after is None or after in before:
-        tail = (proc.stderr or "")[-400:] + (proc.stdout or "")[-400:]
+        tail = (stderr or "")[-400:] + (stdout or "")[-400:]
         return False, f"no_new_csv rc={proc.returncode} tail={tail!r}"
 
     with after.open(newline="") as f:
@@ -106,6 +128,7 @@ def find_max(
     mem_frac: float,
     triton_int2: bool,
     port_offset: int,
+    trial_timeout: float | None,
 ) -> tuple[int, str]:
     trial_base = 31000 + port_offset
     trial_seq = 0
@@ -127,6 +150,7 @@ def find_max(
         mem_frac=mem_frac,
         triton_int2=triton_int2,
         port=next_port(),
+        trial_timeout=trial_timeout,
     )
     if not ok512:
         return 0, f"512_failed:{err512}"
@@ -147,6 +171,7 @@ def find_max(
             mem_frac=mem_frac,
             triton_int2=triton_int2,
             port=next_port(),
+            trial_timeout=trial_timeout,
         )
         print(f"    [{mode}] prefill={n} ok={ok} err={err[:120]!r}", flush=True)
         if ok:
@@ -175,6 +200,7 @@ def find_max(
             mem_frac=mem_frac,
             triton_int2=triton_int2,
             port=next_port(),
+            trial_timeout=trial_timeout,
         )
         if ok:
             lo = mid
@@ -208,6 +234,12 @@ def main() -> int:
         ),
     )
     ap.add_argument("--health-timeout", type=float, default=2400.0)
+    ap.add_argument(
+        "--trial-timeout",
+        type=float,
+        default=None,
+        help="Optional wall-clock timeout per oscar-kv-bench trial.",
+    )
     ap.add_argument("--mem-fraction-static", type=float, default=0.88)
     ap.add_argument(
         "--triton-for-int2-modes",
@@ -257,6 +289,7 @@ def main() -> int:
             mem_frac=args.mem_fraction_static,
             triton_int2=args.triton_for_int2_modes,
             port_offset=port_offset,
+            trial_timeout=args.trial_timeout,
         )
         summary[mode] = (m, how)
         print(f"[probe] mode={mode} max_prefill={m} ({how})", flush=True)
