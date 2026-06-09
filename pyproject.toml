@@ -22,6 +22,13 @@ dev = ["ruff>=0.4"]
 [project.scripts]
 oscar-kv-probe = "oscar_kv_quant.probe:main"
 oscar-kv-bench = "oscar_kv_quant.bench:main"
+oscar-kv-accuracy-compare = "oscar_kv_quant.accuracy_compare:main"
+oscar-kv-calibration-metrics = "oscar_kv_quant.calibration_metrics:main"
+oscar-kv-config-sweep = "oscar_kv_quant.config_sweep:main"
+oscar-kv-longrun = "oscar_kv_quant.longrun:main"
+oscar-kv-longrun-gate = "oscar_kv_quant.longrun_gate:main"
+oscar-kv-regression-gate = "oscar_kv_quant.regression_gate:main"
+oscar-kv-rotation-gate = "oscar_kv_quant.rotation_gate:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
