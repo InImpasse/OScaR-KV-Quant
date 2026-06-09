@@ -7,23 +7,56 @@
 #   - CUDA 12.8/12.9 with nvcc on PATH
 #   - editable install of third_party/OSCAR/sglang-research/python
 #
-# Environment variables:
-#   VENV_DIR=.venv-oscar-kv        target virtualenv directory
-#   PYTHON_VERSION=3.12            Python version installed/used by uv
-#   INSTALL_SGLANG=1               install OSCAR's vendored SGLang
-#   DOWNLOAD_MODELS=0              run scripts/download_models.sh after install
-#   RUN_PROBE=1                    run oscar-kv-probe at the end
-#   CUDA_HOME=/usr/local/cuda-12.9  optional, exported before install/probe
-#   RESET_ENV=0                    set to 1 to recreate the venv
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VENV_DIR="${VENV_DIR:-${ROOT}/.venv-oscar-kv}"
-PYTHON_VERSION="${PYTHON_VERSION:-3.12}"
-INSTALL_SGLANG="${INSTALL_SGLANG:-1}"
-DOWNLOAD_MODELS="${DOWNLOAD_MODELS:-0}"
-RUN_PROBE="${RUN_PROBE:-1}"
-RESET_ENV="${RESET_ENV:-0}"
+VENV_DIR="${ROOT}/.venv-oscar-kv"
+PYTHON_VERSION="3.12"
+INSTALL_SGLANG=1
+DOWNLOAD_MODELS=0
+RUN_PROBE=1
+RESET_ENV=0
+CUDA_TOOLKIT_HOME=""
+
+usage() {
+  cat <<'EOF'
+Usage: ./scripts/setup_env_uv.sh [options]
+
+Options:
+  --venv-dir PATH          Target virtualenv directory (default: .venv-oscar-kv)
+  --python-version VERSION Python version installed/used by uv (default: 3.12)
+  --install-sglang         Install OSCAR's vendored SGLang (default)
+  --no-install-sglang      Skip vendored SGLang install
+  --download-models        Run scripts/download_models.sh after install
+  --no-download-models     Skip model downloads (default)
+  --run-probe              Run oscar-kv-probe at the end (default)
+  --no-run-probe           Skip final probe
+  --cuda-home PATH         CUDA toolkit directory exported before install/probe
+  --reset-env              Recreate the virtualenv if it already exists
+  -h, --help               Show this help
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --venv-dir) VENV_DIR="$2"; shift 2 ;;
+    --python-version) PYTHON_VERSION="$2"; shift 2 ;;
+    --install-sglang) INSTALL_SGLANG=1; shift ;;
+    --no-install-sglang) INSTALL_SGLANG=0; shift ;;
+    --download-models) DOWNLOAD_MODELS=1; shift ;;
+    --no-download-models) DOWNLOAD_MODELS=0; shift ;;
+    --run-probe) RUN_PROBE=1; shift ;;
+    --no-run-probe) RUN_PROBE=0; shift ;;
+    --cuda-home) CUDA_TOOLKIT_HOME="$2"; shift 2 ;;
+    --reset-env) RESET_ENV=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+if [[ "${VENV_DIR}" != /* ]]; then
+  VENV_DIR="${ROOT}/${VENV_DIR}"
+fi
 
 if ! command -v uv >/dev/null 2>&1; then
   echo "uv is required. Install it first, for example:" >&2
@@ -32,10 +65,10 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ -n "${CUDA_HOME:-}" ]]; then
-  export CUDA_HOME
-  export PATH="${CUDA_HOME}/bin:${PATH}"
-  export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
+if [[ -n "${CUDA_TOOLKIT_HOME}" ]]; then
+  export CUDA_HOME="${CUDA_TOOLKIT_HOME}"
+  export PATH="${CUDA_TOOLKIT_HOME}/bin:${PATH}"
+  export LD_LIBRARY_PATH="${CUDA_TOOLKIT_HOME}/lib64:${LD_LIBRARY_PATH:-}"
 fi
 
 echo "[setup] repo=${ROOT}"
@@ -45,8 +78,8 @@ echo "[setup] python=${PYTHON_VERSION}"
 cd "${ROOT}"
 git submodule update --init --recursive
 
-if [[ -e "${VENV_DIR}" && "${RESET_ENV}" == "1" ]]; then
-  echo "[setup] removing existing venv because RESET_ENV=1: ${VENV_DIR}"
+if [[ -e "${VENV_DIR}" && "${RESET_ENV}" -eq 1 ]]; then
+  echo "[setup] removing existing venv because --reset-env was set: ${VENV_DIR}"
   rm -rf "${VENV_DIR}" || {
     echo "[setup] failed to remove ${VENV_DIR}" >&2
     echo "If it is owned by root, run:" >&2
@@ -149,7 +182,7 @@ PYEOF
 fi
 
 if [[ "${DOWNLOAD_MODELS}" == "1" ]]; then
-  "${ROOT}/scripts/download_models.sh"
+  "${ROOT}/scripts/download_models.sh" --venv-dir "${VENV_DIR}"
 fi
 
 echo "[setup] verifying installed CLI entry points"

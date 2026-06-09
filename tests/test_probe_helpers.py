@@ -8,7 +8,8 @@ from oscar_kv_quant.probe import ProbeStatus, _health_ok, _served_model_name, _t
 
 class ProbeHelperTest(unittest.TestCase):
     def test_tail_returns_empty_for_missing_file(self) -> None:
-        self.assertEqual(_tail(Path("/tmp/does-not-exist-oscar-kv.log")), "")
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(_tail(Path(tmp) / "does-not-exist-oscar-kv.log"), "")
 
     def test_tail_reads_last_n_lines(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

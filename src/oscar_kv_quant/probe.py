@@ -12,6 +12,8 @@ import urllib.request
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
+from oscar_kv_quant.paths import repo_cache_dir
+
 
 @dataclass
 class ProbeStatus:
@@ -53,7 +55,7 @@ def _run_server_probe(
     mem_fraction_static: float,
     extra_args: list[str] | None = None,
 ) -> tuple[bool, Path]:
-    log_path = Path(os.environ.get("TMPDIR", "/tmp")) / (
+    log_path = repo_cache_dir() / (
         f"oscar_kv_probe_{Path(model_path).name}_{kv_cache_dtype}_{port}.log"
     )
     cmd = [
