@@ -60,6 +60,21 @@ PROFILES: dict[str, ModelProfile] = {
 }
 
 
+# Bench token presets (also mirrored in bench.PRESET_TOKENS).
+BENCH_PRESETS: dict[str, dict[str, int]] = {
+    "16k": {
+        "prefill_tokens": 16384,
+        "max_new_tokens": 64,
+        "max_total_tokens": 17408,
+    },
+    "32k": {
+        "prefill_tokens": 32768,
+        "max_new_tokens": 64,
+        "max_total_tokens": 38272,
+    },
+}
+
+
 def load_model_config(model_path: Path) -> dict[str, Any]:
     cfg = model_path / "config.json"
     if not cfg.is_file():

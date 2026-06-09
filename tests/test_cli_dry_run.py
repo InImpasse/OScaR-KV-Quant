@@ -52,6 +52,7 @@ class BenchCliDryRunTest(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
             self.assertIn("[bench:dry-run] mode=bf16", proc.stdout)
             self.assertIn("[bench:dry-run] mode=int2", proc.stdout)
+            self.assertIn("--max-running-requests 1", proc.stdout)
             self.assertTrue(list(Path(out).glob("bench_granite_*.csv")))
             self.assertTrue(list(Path(out).glob("bench_granite_*.md")))
 
