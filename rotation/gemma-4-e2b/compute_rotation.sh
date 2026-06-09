@@ -4,9 +4,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+# shellcheck source=../../scripts/lib/repo_paths.sh
+source "${REPO_ROOT}/scripts/lib/repo_paths.sh"
 OSCAR_ROOT="${REPO_ROOT}/third_party/OSCAR"
 COMPUTE_SCRIPT="${OSCAR_ROOT}/rotation/compute_kv_rotation.py"
-MODEL="${MODEL:-${REPO_ROOT}/checkpoints/gemma-4-E2B}"
+MODEL="${MODEL:-checkpoints/gemma-4-E2B}"
+MODEL="$(resolve_repo_path "${MODEL}")"
 PY="${PY:-python3}"
 
 METHOD="${METHOD:-qqt_sst}"

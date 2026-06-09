@@ -4,11 +4,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+# shellcheck source=../../scripts/lib/repo_paths.sh
+source "${REPO_ROOT}/scripts/lib/repo_paths.sh"
 OSCAR_ROOT="${REPO_ROOT}/third_party/OSCAR"
 SGLANG_DUMP_DIR="${OSCAR_ROOT}/sglang-dump-qkv"
 
 export HF_HOME="${HF_HOME:-${HOME}/.cache/huggingface}"
-MODEL="${MODEL:-${REPO_ROOT}/checkpoints/gemma-4-E2B}"
+MODEL="${MODEL:-checkpoints/gemma-4-E2B}"
+MODEL="$(resolve_repo_path "${MODEL}")"
+setup_runtime_caches
 TP_SIZE="${TP_SIZE:-1}"
 PORT="${PORT:-31120}"
 DIST_PORT="${DIST_PORT:-41120}"

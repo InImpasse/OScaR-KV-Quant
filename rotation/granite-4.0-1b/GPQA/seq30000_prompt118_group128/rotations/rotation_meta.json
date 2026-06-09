@@ -1,0 +1,41 @@
+{
+  "format_version": 1,
+  "model": "checkpoints/hf/granite-4.0-1b-base",
+  "dataset": "GPQA",
+  "method": "qqt_sst",
+  "composition": "r_h_pbr",
+  "recipe": "OSCAR qqt_sst calibrated spectral covariance + Hadamard + bit-reversal",
+  "head_dim": 128,
+  "num_layers": 40,
+  "dump_path": "rotation/granite-4.0-1b/GPQA/seq30000_prompt118_group128/qkv_dumps/gpqa",
+  "calibration": {
+    "model": "checkpoints/hf/granite-4.0-1b-base",
+    "dataset": "GPQA",
+    "calib_profile": "paper",
+    "method": "qqt_sst",
+    "composition": "r_h_pbr",
+    "group_size": 128,
+    "dump_token_budget": 30000,
+    "dumped_tokens": 30000,
+    "num_prompts_requested": 198,
+    "num_prompts_captured": 118,
+    "runner_ok_prompts": 117,
+    "runner_error_prompts": 0,
+    "runner_submitted_prompts": 117,
+    "min_dumped_tokens": 27000,
+    "max_dump_errors": 0,
+    "dump_api": "completions",
+    "created_at": "2026-06-08T13:08:13+0800"
+  },
+  "rotation_files": {
+    "k": {
+      "path": "rotation/granite-4.0-1b/GPQA/seq30000_prompt118_group128/rotations/k_rotation_qqt_r_h_pbr.pt",
+      "max_orthogonality_error": 7.152557373046875e-07
+    },
+    "v": {
+      "path": "rotation/granite-4.0-1b/GPQA/seq30000_prompt118_group128/rotations/v_rotation_sst_r_h_pbr.pt",
+      "max_orthogonality_error": 5.960464477539062e-07
+    }
+  },
+  "created_at": "2026-06-08T13:09:32+0800"
+}

@@ -1,0 +1,19 @@
+{
+  "model": "checkpoints/hf/granite-4.0-1b-base",
+  "dataset": "GPQA",
+  "calib_profile": "paper",
+  "method": "qqt_sst",
+  "composition": "r_h_pbr",
+  "group_size": 128,
+  "dump_token_budget": 30000,
+  "dumped_tokens": 30000,
+  "num_prompts_requested": 198,
+  "num_prompts_captured": 118,
+  "runner_ok_prompts": 117,
+  "runner_error_prompts": 0,
+  "runner_submitted_prompts": 117,
+  "min_dumped_tokens": 27000,
+  "max_dump_errors": 0,
+  "dump_api": "completions",
+  "created_at": "2026-06-08T13:08:13+0800"
+}

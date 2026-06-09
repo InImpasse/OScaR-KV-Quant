@@ -1,50 +1,9 @@
-# Rotation Calibration Scripts
+# Rotation scripts
 
-These scripts are adapted from the upstream `third_party/OSCAR/rotation/qwen3-8B` templates. Run them from the OSCAR-KV-Quant repository root, with `third_party/OSCAR` checked out as a submodule.
+Granite and Gemma calibration/eval wrappers. **Full usage, benchmarks, and official-vs-local comparison are in the root [README.md](../README.md).**
 
-## Granite 4.0 1B
+Quick pointers:
 
-```bash
-cd /path/to/OSCAR-KV-Quant
-bash rotation/granite-4.0-1b/save_qkv_granite.sh
-# After a successful dump
-bash rotation/granite-4.0-1b/compute_rotation.sh
-```
-
-On RTX 5050, start with smaller values such as `DUMP_KVCACHE_TOKENS=2000` and `NUM_WORKERS=2`.
-
-## Gemma 4 E2B
-
-```bash
-bash rotation/gemma-4-e2b/save_qkv_gemma4.sh
-bash rotation/gemma-4-e2b/compute_rotation.sh
-```
-
-`compute_rotation.sh` first tries to infer `NUM_LAYERS` and `HEAD_DIM` from the local checkpoint `config.json` or nested `text_config`. If the parsed values do not match the actual upstream OSCAR dump layout, override them explicitly:
-
-```bash
-HEAD_DIM=128 NUM_LAYERS=40 bash rotation/granite-4.0-1b/compute_rotation.sh
-```
-
-## Hadamard Baseline Without QKV Dump
-
-```bash
-METHOD=hadamard bash rotation/granite-4.0-1b/compute_rotation.sh
-```
-
-Then pass the generated rotation directory to:
-
-```bash
-oscar-kv-bench --profile granite --modes oscar-int2 --rot-dir /path/to/rotations
-```
-
-## Preflight Checks
-
-The dump scripts check these conditions before starting a server:
-
-- `MODEL/config.json` exists.
-- `third_party/OSCAR/sglang-dump-qkv/python` exists.
-- `curl` is available.
-- The active Python can run `sglang.launch_server`.
-
-If any check fails, install the environment and download checkpoints first. See `docs/ENVIRONMENT.md` and `docs/repro_5050.md`.
+- Calibration: `granite-4.0-1b/save_qkv_granite.sh` → `compute_rotation.sh`
+- Default Granite rotations: `granite-4.0-1b/GPQA/seq30000_prompt118_group128/rotations/`
+- Eval flags: all `eval_*.sh` scripts accept `--help` (see `scripts/lib/eval_cli.sh`)
