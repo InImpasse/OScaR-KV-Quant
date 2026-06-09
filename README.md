@@ -207,26 +207,9 @@ Bench runs target a **prefill** length in **input tokens**. The prompt is synthe
 
 For `16k` and `32k`, the wrappers cap `--max-total-tokens` at `17408` and `38272` respectively, so BF16 and INT2 allocate comparable KV pools.
 
-Baseline summary from `benchmarks/granite_bench_baseline.json`:
+The CUDA graph comparison below was captured on RTX 5050 with `max_new_tokens=64` and the completions API. It reports BF16, plain INT2, and OSCAR INT2 with CUDA graph enabled and disabled. Graph-on is the primary OSCAR INT2 path; graph-off is kept for isolation and debugging.
 
-| Prefill | BF16 steady tok/s | plain INT2 | OSCAR INT2 | KV theory BF16 / OSCAR |
-|---:|---:|---:|---:|---|
-| 512 | 46.5 | 33.3 | 50.3 | 0.044 / 0.099 GiB |
-| 2048 | 43.1 | 32.8 | 47.3 | 0.161 / 0.116 GiB |
-| 8192 | 40.3 | 31.6 | 48.4 | 0.630 / 0.182 GiB |
-| 32768 | 29.3 | 24.7 | 36.3 (flush 17.1) | 2.505 / 0.494 GiB |
-
-The 16K run was added in the CUDA graph matrix below; `benchmarks/granite_bench_baseline.json` has not been refreshed to include a 16K baseline row.
-
-The CUDA graph comparison below was captured on RTX 5050 with `max_new_tokens=64` and the completions API. Results are split into **CUDA graph on** and **CUDA graph off**, with graph-on listed first. Each half has five tables for 512 / 2K / 8K / 16K / 32K prefill.
-
-The graph-off half is a true graph-off run for all three modes, including OSCAR (`--disable-oscar-cuda-graph`). Graph-on is the primary OSCAR INT2 path because SGLang CUDA graph replay removes much of the per-step kernel launch and scheduling overhead. Graph-off is still useful for isolation and worst-case debugging, but it can expose fragile mixed-KV behavior; see the 8K OSCAR graph-off note below.
-
-In every table, each row is one KV mode. BF16 timing/KV cells are single baseline values. For plain INT2 and OSCAR INT2, HTML `<br>` keeps the measured number on the first line and the delta vs BF16 on the following line(s). Throughput columns show `(Δ%)`; **Peak (MiB)** and **KV pool K+V (MiB, measured)** use line 2 for `(Δ% vs BF16)` and line 3 for signed `Δ MiB`. Table headers use the same convention: metric name on line 1 and unit on line 2.
-
-**KV pool K+V (MiB, measured):** these values are **not** from `kv_theory_*` estimates. They are copied from the bench CSV fields **`kv_k_size_gb` / `kv_v_size_gb`**, which are parsed from the SGLang server log line **`KV Cache is allocated…`**. Table cells convert logged **K+V** to **MiB** as `(kv_k_size_gb + kv_v_size_gb) × 1024`; use the same numeric strings as the CSV and treat the logged unit as GiB-scale for display. In these captures, logged K/V for a given mode+preset did not change between graph on and graph off, so the same measured pool is repeated in both halves.
-
-Raw timing outputs: `results/cuda_graph_compare_matrix/verify_readme_true_off_20260609/{off,on}/{short,medium,long,16k,32k}/`.
+`Peak (MiB)` is whole-GPU peak memory from `nvidia-smi`. `KV pool K+V (MiB, measured)` is only the K/V allocator slice parsed from the SGLang `KV Cache is allocated...` log line, not a theoretical estimate. Raw outputs are under `results/cuda_graph_compare_matrix/verify_readme_true_off_20260609/{off,on}/{short,medium,long,16k,32k}/`.
 
 To rerun and summarize this matrix:
 
@@ -239,17 +222,6 @@ To rerun and summarize this matrix:
 python scripts/summarize_cuda_graph_matrix.py \
   results/cuda_graph_compare_matrix/<TAG>
 ```
-
-**Column definitions** use the same semantics as `oscar-kv-bench` and `src/oscar_kv_quant/log_metrics.py`, which parse SGLang scheduler logs. **Peak** additionally uses whole-GPU sampling from the bench harness:
-
-| Column | Meaning |
-|--------|---------|
-| **Prefill**<br>(tok/s) | Median **prefill** batch *input* throughput across log samples in the bench window (`prefill_median_tok_s`). |
-| **Decode first**<br>(tok/s) | The first **decode** log sample’s reported **generation throughput** (`decode_first_tok_s`). This is **not** wall-clock time-to-first-token. |
-| **Steady**<br>(tok/s) | Median decode throughput **after** the first step, excluding low-throughput “flush” outliers (`decode_steady_median_tok_s`). |
-| **P95**<br>(tok/s) | 95th percentile of that steady subset (`decode_steady_p95_tok_s`). |
-| **Peak**<br>(MiB) | Whole-GPU **peak** memory during the run (`peak_mib_total` in the bench CSV), dominated by weights + runtime + KV rather than KV alone. For INT2/OSCAR: **line 1** peak MiB, **line 2** **(Δ% vs BF16 peak)**, **line 3** signed **(Δ MiB vs BF16 peak)**. |
-| **KV pool K+V**<br>(MiB, measured) | **K+V** arena size **actually allocated**, from **`KV Cache is allocated…`** via CSV `kv_k_size_gb` / `kv_v_size_gb`; this is **not** `kv_theory_*`. **BF16:** **line 1** total **MiB** (`(kv_k_size_gb + kv_v_size_gb) × 1024`, rounded). **INT2/OSCAR:** **line 1** total **MiB**, **line 2** **(Δ% vs BF16 K+V MiB)**, **line 3** signed **(Δ MiB vs BF16 K+V)**. |
 
 ### CUDA graph on
 

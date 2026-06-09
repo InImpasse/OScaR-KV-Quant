@@ -5,7 +5,7 @@
   "run_id": "results/granite_bench_matrix/20260608_fill",
   "protocol": {
     "tool": "./scripts/bench_matrix.sh",
-    "presets": {"short": 512, "medium": 2048, "long": 8192, "32k": 32768},
+    "presets": {"short": 512, "medium": 2048, "long": 8192, "16k": 16384, "32k": 32768},
     "modes": ["bf16", "plain_int2", "oscar_int2"],
     "fair_32k": "--max-total-tokens 38272"
   },
@@ -82,6 +82,29 @@
         "runtime_kv_pool": "K 0.09 GB + V 0.09 GB"
       }
     },
+    "16k_16384": {
+      "status": "complete",
+      "csv": "results/cuda_graph_compare_matrix/verify_readme_true_off_20260609/on/16k/bench_granite_20260609T081659Z.csv",
+      "bf16": {
+        "steady_decode_tok_s": 52.84,
+        "peak_mib_delta": 4891,
+        "kv_theory_gib": 1.255,
+        "runtime_kv_pool": "K 0.67 GB + V 0.67 GB"
+      },
+      "plain_int2": {
+        "steady_decode_tok_s": 53.57,
+        "peak_mib_delta": 4213,
+        "kv_theory_gib": 0.157,
+        "runtime_kv_pool": "K 0.08 GB + V 0.08 GB",
+        "note": "With --max-total-tokens 17408 cap"
+      },
+      "oscar_int2": {
+        "steady_decode_tok_s": 40.71,
+        "peak_mib_delta": 4309,
+        "kv_theory_gib": 0.270,
+        "runtime_kv_pool": "K 0.14 GB + V 0.14 GB"
+      }
+    },
     "32k_32768": {
       "status": "complete",
       "csv": "results/granite_bench_matrix/20260608_fill/32k/bench_granite_20260608T101905Z.csv",
@@ -111,7 +134,7 @@
     }
   },
   "coverage_summary": {
-    "complete_presets": ["short_512", "medium_2048", "long_8192", "32k_32768"],
+    "complete_presets": ["short_512", "medium_2048", "long_8192", "16k_16384", "32k_32768"],
     "pending_presets": [],
     "refresh_command": "./scripts/bench_matrix.sh --tag $(date +%Y%m%d)"
   }
