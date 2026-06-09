@@ -20,7 +20,7 @@ Here, OSCAR means **Offline Spectral Covariance-Aware Rotation**. It is **not** 
 - Git submodules initialized
 - `HF_TOKEN` for gated model downloads, if needed
 
-The setup script creates `.venv-oscar-kv` and installs the vendored SGLang stack from `third_party/OSCAR`. The important pins are `torch==2.9.1`, `transformers==5.3.0`, `flashinfer_python==0.6.7.post3`, `sglang-kernel==0.4.1`, and `kernels==0.13.0`.
+The setup script creates `.venv-oscar-kv` and installs the vendored SGLang stack from `third_party/OSCAR`. The core project dependencies are pinned to the same stack: `torch==2.9.1`, `torchaudio==2.9.1`, and `transformers==5.3.0`. The broader SGLang install also expects `flashinfer_python==0.6.7.post3`, `sglang-kernel==0.4.1`, and `kernels==0.13.0`.
 
 The upstream OSCAR project is [FutureMLS-Lab/OSCAR](https://github.com/FutureMLS-Lab/OSCAR). This repository points `third_party/OSCAR` at the [InImpasse/OSCAR](https://github.com/InImpasse/OSCAR) fork through `.gitmodules`. The parent repo pins an exact submodule commit, so `git submodule update --init --recursive` checks out that commit instead of following a branch.
 
@@ -546,4 +546,3 @@ runs/                local run artifacts, gitignored
 - `int8` and `int4` need runtime pool-log checks before making storage claims.
 - CUDA graph support for `oscar-int8` and `oscar-int4` is not implemented yet. A proper fix likely needs a graph-safe quantized KV write path, such as Triton/CUDA kernels that compute/store scales on device or a separate precomputed-scale design; simply removing `.item()` would risk incorrect dequantization or stale per-layer scales.
 - The official five-benchmark, five-repeat protocol is expensive on a laptop GPU; scale `eval_accuracy_suite.sh` incrementally.
-
