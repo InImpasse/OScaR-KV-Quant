@@ -15,7 +15,7 @@ Here, OSCAR means **Offline Spectral Covariance-Aware Rotation**. It is **not** 
 ## Requirements
 
 - Python 3.12
-- CUDA 12.8 or 12.9 with `nvcc`
+- CUDA **12.8+** with `nvcc` (`scripts/check_env.sh` accepts any **nvcc ≥ 12.8**). Upstream docs still center on **12.8–12.9** for the vendored **cu129** stack; if FlashInfer/Triton JIT miscompiles, set `CUDA_HOME` to a toolkit that matches your PyTorch CUDA build.
 - NVIDIA driver visible from WSL (`nvidia-smi`)
 - Git submodules initialized
 - `HF_TOKEN` for gated model downloads, if needed

@@ -4,10 +4,17 @@ set -euo pipefail
 
 REQUIRED_PYTHON_MAJOR=3
 REQUIRED_PYTHON_MINOR=12
-REQUIRED_CUDA_MIN_MINOR=8
-REQUIRED_CUDA_MAX_MINOR=9
 
 ok=1
+
+# CUDA toolkit on PATH (nvcc): accept CUDA >= 12.8 (e.g. 12.8, 12.9, 12.10+, 13.x).
+# PyTorch wheels may be cu128/cu129; if JIT miscompiles, align CUDA_HOME with that build.
+cuda_toolkit_accepted() {
+  local maj="$1" min="$2"
+  [[ "$maj" -eq 12 && "$min" -ge 8 ]] && return 0
+  [[ "$maj" -gt 12 ]] && return 0
+  return 1
+}
 
 section() {
   echo
@@ -77,20 +84,21 @@ if command -v nvcc >/dev/null 2>&1; then
   if [[ -n "$cuda_version" ]]; then
     cuda_major="$(echo "$cuda_version" | awk -F. '{print $1}')"
     cuda_minor="$(echo "$cuda_version" | awk -F. '{print $2}')"
-    if [[ "$cuda_major" -ne 12 || "$cuda_minor" -lt "$REQUIRED_CUDA_MIN_MINOR" || "$cuda_minor" -gt "$REQUIRED_CUDA_MAX_MINOR" ]]; then
+    if ! cuda_toolkit_accepted "$cuda_major" "$cuda_minor"; then
       ok=0
-      echo "CUDA toolkit ${cuda_version} detected, but upstream OSCAR expects CUDA 12.8 or 12.9."
-      echo "Upgrade suggestion:"
-      echo "  Install CUDA Toolkit 12.8 or 12.9 in WSL."
+      echo "CUDA toolkit ${cuda_version} detected; this script requires nvcc for CUDA 12.8 or newer."
+      echo "Example (documented upstream stack): install CUDA 12.9 and use:"
       echo "  export CUDA_HOME=/usr/local/cuda-12.9"
       echo "  export PATH=\"\$CUDA_HOME/bin:\$PATH\""
       echo "  export LD_LIBRARY_PATH=\"\$CUDA_HOME/lib64:\${LD_LIBRARY_PATH:-}\""
+    elif [[ "$cuda_major" -gt 12 ]] || [[ "$cuda_major" -eq 12 && "$cuda_minor" -gt 9 ]]; then
+      echo "Note: nvcc is newer than the upstream-documented 12.8–12.9 line. If FlashInfer/Triton JIT miscompiles, point CUDA_HOME at a toolkit matching your PyTorch CUDA build (often 12.9 for cu129)."
     fi
   fi
 else
   ok=0
   echo "nvcc: missing"
-  echo "Install CUDA Toolkit 12.8 or 12.9 and ensure nvcc is on PATH."
+  echo "Install CUDA Toolkit 12.8 or newer and ensure nvcc is on PATH."
 fi
 
 section "Build tools"

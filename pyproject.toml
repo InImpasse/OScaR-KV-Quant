@@ -42,7 +42,7 @@ oscar_kv_quant = ["py.typed"]
 [tool.oscar_kv_quant.environment]
 source = "FutureMLS-Lab/OSCAR README + bundled sglang-research/python/pyproject.toml"
 python = "3.12"
-cuda = "12.8 or 12.9 with nvcc on PATH"
+cuda = "nvcc for CUDA 12.8 or newer (check_env.sh); upstream docs 12.8–12.9 for cu129; align CUDA_HOME with PyTorch CUDA if JIT fails"
 recommended_gpu_upstream = "H100 80GB for 4B/8B official runs; RTX 5050 8GB is best-effort smoke/bench only"
 notes = [
   "Use one environment for dump and eval, matching the OSCAR upstream layout.",
