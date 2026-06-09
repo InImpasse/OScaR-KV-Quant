@@ -3,7 +3,13 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from oscar_kv_quant.probe import ProbeStatus, _health_ok, _served_model_name, _tail
+from oscar_kv_quant.probe import (
+    ProbeStatus,
+    _health_ok,
+    _normalize_model_path_for_server,
+    _served_model_name,
+    _tail,
+)
 
 
 class ProbeHelperTest(unittest.TestCase):
@@ -43,6 +49,22 @@ class ProbeHelperTest(unittest.TestCase):
 
     def test_served_model_name_replaces_colon(self) -> None:
         self.assertEqual(_served_model_name("runai://model:version"), "model_version")
+
+    def test_normalize_local_checkpoint_is_absolute(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "granite-4.0-1b-base"
+            root.mkdir()
+            (root / "config.json").write_text("{}", encoding="utf-8")
+            out = _normalize_model_path_for_server(str(root))
+            self.assertTrue(Path(out).is_absolute())
+            self.assertEqual(out, str(root.resolve()))
+
+    def test_normalize_dummy_unchanged(self) -> None:
+        self.assertEqual(_normalize_model_path_for_server("dummy"), "dummy")
+
+    def test_normalize_hf_repo_id_unchanged(self) -> None:
+        rid = "ibm-granite/granite-4.0-1b-base"
+        self.assertEqual(_normalize_model_path_for_server(rid), rid)
 
 
 if __name__ == "__main__":

@@ -44,6 +44,22 @@ def _served_model_name(model_path: str) -> str:
     return name.replace(":", "_")
 
 
+def _normalize_model_path_for_server(model_path: str) -> str:
+    """Use an absolute path for local HF checkpoints.
+
+    SGLang's loader uses ``os.path.isdir(model_path)`` to decide whether weights
+    are local. If ``--model-path`` is relative and a worker's cwd differs from
+    the repo root, the path is mistaken for a Hugging Face repo id and weight
+    discovery returns no files.
+    """
+    if model_path == "dummy":
+        return model_path
+    p = Path(model_path)
+    if p.is_dir() and (p / "config.json").is_file():
+        return str(p.resolve())
+    return model_path
+
+
 def _run_server_probe(
     *,
     model_path: str,
@@ -55,6 +71,7 @@ def _run_server_probe(
     mem_fraction_static: float,
     extra_args: list[str] | None = None,
 ) -> tuple[bool, Path]:
+    model_path = _normalize_model_path_for_server(model_path)
     log_path = repo_cache_dir() / (
         f"oscar_kv_probe_{Path(model_path).name}_{kv_cache_dtype}_{port}.log"
     )

@@ -366,6 +366,13 @@ def _fp16_weights_unsafe_for_model(model_path: Path) -> bool:
     )
 
 
+def _sglang_model_path_arg(model_path: Path) -> str:
+    """Absolute path for local checkpoints (see oscar_kv_quant.probe)."""
+    if model_path.is_dir() and (model_path / "config.json").is_file():
+        return str(model_path.resolve())
+    return str(model_path)
+
+
 def _server_cmd(
     py: str,
     model_path: Path,
@@ -396,7 +403,7 @@ def _server_cmd(
         "-m",
         "sglang.launch_server",
         "--model-path",
-        str(model_path),
+        _sglang_model_path_arg(model_path),
         "--tensor-parallel-size",
         "1",
         "--host",
