@@ -8,12 +8,15 @@ version = "0.1.0"
 description = "OSCAR (#1) KV validation harness for Granite / Gemma4 on consumer GPUs"
 readme = "README.md"
 requires-python = ">=3.12"
+# Pinned to match third_party/OSCAR/sglang-research/python so the first
+# `pip install -e .` does not pull torch 2.12+ and then downgrade on SGLang.
 dependencies = [
-  "torch>=2.5",
+  "torch==2.9.1",
+  "torchaudio==2.9.1",
   "httpx>=0.27",
   "ninja>=1.11",
   "socksio>=1.0",
-  "transformers>=4.45",
+  "transformers==5.3.0",
 ]
 
 [project.optional-dependencies]
