@@ -21,8 +21,10 @@ GPU="0"
 PORT="32300"
 DIST_PORT="42300"
 MEM_FRACTION_STATIC="0.78"
-MAX_RUNNING_REQUESTS="1"
-MAX_QUEUED_REQUESTS="4"
+# Honor env (e.g. MAX_RUNNING_REQUESTS=8 bash …) so client-side --repeat
+# parallelism does not overwhelm the server's waiting queue (503 queue full).
+MAX_RUNNING_REQUESTS="${MAX_RUNNING_REQUESTS:-1}"
+MAX_QUEUED_REQUESTS="${MAX_QUEUED_REQUESTS:-4}"
 NUM_EXAMPLES=""
 NUM_THREADS="1"
 REPEAT="1"

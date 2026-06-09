@@ -47,6 +47,8 @@ Options:
   --num-examples N     Subset size (task default if omitted)
   --repeat N           Repeat count per example
   --num-threads N      Eval parallelism
+  --max-running-requests N   Forwarded to SGLang --max-running-requests (default: 1 or env)
+  --max-queued-requests N    Forwarded to SGLang --max-queued-requests (default: 4 or env)
   --model PATH         Model checkpoint directory
   --rot-dir PATH       Rotation directory (OSCAR INT2 only)
   --run-dir PATH       Output directory
@@ -128,6 +130,10 @@ parse_eval_cli_args() {
         ;;
       --max-running-requests)
         MAX_RUNNING_REQUESTS="$2"
+        shift 2
+        ;;
+      --max-queued-requests)
+        MAX_QUEUED_REQUESTS="$2"
         shift 2
         ;;
       --k-rotation-filename)
