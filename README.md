@@ -26,6 +26,15 @@ The upstream OSCAR project is [FutureMLS-Lab/OSCAR](https://github.com/FutureMLS
 
 ## Quick start
 
+If you are using the [`sglang-kv-harness`](https://github.com/InImpasse/OSCAR-KV-Quant/tree/sglang-kv-harness) branch, switch to it right after cloning:
+
+```bash
+git clone https://github.com/InImpasse/OSCAR-KV-Quant.git
+cd OSCAR-KV-Quant
+git fetch origin
+git switch sglang-kv-harness
+```
+
 ```bash
 git submodule update --init --recursive
 ./scripts/check_env.sh
