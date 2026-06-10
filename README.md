@@ -8,7 +8,7 @@ Here, OSCAR means **Offline Spectral Covariance-Aware Rotation**. It is **not** 
 
 Validated path: **Granite 4.0 1B** on WSL2 + RTX 5050 8GB.
 
-- **Speed/memory**: BF16, plain INT2, and OSCAR INT2 at prefill lengths 512–32K — see [Speed and memory](#speed-and-memory).
+- **Speed/memory**: BF16, OSCAR INT2, and plain INT2 at prefill lengths 512–32K — see [Speed and memory](#speed-and-memory).
 - **Accuracy**: GPQA, GSM8K, MATH-500, HumanEval, LiveCodeBench v6, and AIME 25 — see [Accuracy](#accuracy).
 - **CUDA graph**: enabled for `oscar-int2`; `oscar-int8` / `oscar-int4` remain experimental — see [KV modes](#kv-modes) and [Limitations](#limitations).
 - **Gemma 4 E2B**: early local tests were less promising on this 8GB setup; this repo keeps Granite as the main validated path and will revisit Gemma separately.
@@ -18,7 +18,7 @@ Validated path: **Granite 4.0 1B** on WSL2 + RTX 5050 8GB.
 - CUDA graph is the primary OSCAR INT2 runtime path here; it improves steady decode throughput versus graph-off runs, with only modest whole-GPU peak-memory changes in the measured matrix.
 - OSCAR INT2 substantially reduces the measured KV pool at long context. At 32K, the CUDA-graph-on run uses 512 MiB K+V pool versus 2990 MiB for BF16.
 - Whole-GPU peak memory falls much less than the KV pool because the peak also includes BF16 model weights, CUDA context, allocator reserves, workspaces, graph-capture buffers, and runtime overhead. To push total VRAM lower, a follow-up direction is the [`llamacpp-kv-harness`](https://github.com/InImpasse/OSCAR-KV-Quant/tree/llamacpp-kv-harness) branch, which tests llama.cpp + GGUF KV-cache formats.
-- Plain INT2 has the smallest KV pool, but it collapses on the accuracy suite; OSCAR INT2 preserves far more accuracy, with HumanEval Pass@1/Pass@2 as the main regressions.
+- OSCAR INT2 preserves far more accuracy than plain INT2, which has the smallest KV pool but collapses on the accuracy suite. HumanEval Pass@1/Pass@2 remain the main OSCAR INT2 regressions.
 - Results are local to Granite 4.0 1B on RTX 5050 8GB. They are not official OSCAR paper numbers and should not be compared directly to H100 / larger-model results.
 
 ## Requirements
@@ -186,15 +186,23 @@ For the full speed/memory matrix across 512, 2K, 8K, 16K, and 32K, use `bench_ma
 | **Accuracy protocol** | GPQA, HumanEval, LCB v6, AIME 25, MATH-500; five repeats | Same wrapper shape, smaller local subsets as GPU time allows |
 | **KV compression** | Paper reports about 2.28 BPE vs BF16 16.00 at long context | Local 32K OSCAR INT2 theoretical KV is about 15% of BF16 |
 
-This repository does **not** try to reproduce the official paper numbers on Granite. It keeps the comparison structure the same: BF16 baseline, plain INT2, OSCAR INT2, and the same metric family, but with a different model and different hardware.
+This repository does **not** try to reproduce the official paper numbers on Granite. It keeps the comparison structure the same: BF16 baseline, OSCAR INT2, plain INT2, and the same metric family, but with a different model and different hardware.
+
+### Local SGLang/OSCAR fork notes
+
+The vendored OSCAR/SGLang tree is not a vanilla upstream checkout. For the local RTX 5050 / `sm_120` path, this repo uses the pinned `InImpasse/OSCAR` fork and wrapper defaults that keep INT2 testing usable on consumer Blackwell hardware:
+
+- `int2` and `oscar-int2` default to Triton prefill/decode backends on `sm_120`, because the current FA3/FA4 dense INT2 prefill path is not usable there.
+- The fork contains an `SM120` fallback in the Triton attention path: it uses SDPA over already-dequantized per-request K/V for the incompatible dense prefill step, while keeping the quantized KV cache path testable.
+- Long-context wrapper runs cap `--max-total-tokens` for fair BF16/INT2 KV-pool comparisons on an 8GB GPU.
 
 ## KV modes
 
 | Mode | SGLang `--kv-cache-dtype` | Notes |
 |---|---|---|
 | **`bf16`** | `bf16` | Full-precision KV baseline |
-| **`int2`** | `int2` | Plain INT2, no rotation |
 | **`oscar-int2`** | `int2` | Mixed-precision windows plus rotation `.pt` files |
+| **`int2`** | `int2` | Plain INT2, no rotation |
 | **`oscar-int8` / `oscar-int4`** | `int8` / `int4` | Experimental rotated integer KV modes; run with `--disable-oscar-cuda-graph` in the current runtime |
 | **`fp8` / `fp4`** | `fp8_e4m3` / `fp4_e2m1` | Floating low-bit KV comparison modes |
 | **`int8` / `int4`** | `int8` / `int4` | Integer KV modes; check runtime pool logs before interpreting memory |
@@ -205,54 +213,9 @@ Granite is BF16-trained. Forced FP16 compute collapses outputs, so use `bf16` or
 
 Bench runs target a **prefill** length in **input tokens**. The prompt is synthetic text built from the model tokenizer; see `_build_prefill_text` in `src/oscar_kv_quant/bench.py`. Decode length is configured separately with `--max-new-tokens` and defaults to 64 in the baseline tables.
 
-**Named presets** — these are the valid `--preset` / `--presets` labels. The CLI rejects any other label:
+The CUDA graph comparison below was captured on RTX 5050 with `max_new_tokens=64` and the completions API. It reports BF16, OSCAR INT2, and plain INT2 with CUDA graph enabled and disabled. Graph-on is the primary OSCAR INT2 path; graph-off is kept for isolation and debugging.
 
-| Preset | Prefill tokens |
-|--------|---------------:|
-| **`short`** | 512 |
-| **`medium`** | 2048 |
-| **`long`** | 8192 |
-| **`16k`** | 16384 |
-| **`32k`** | 32768 |
-
-- **Single bench**: `./scripts/bench.sh` / `oscar-kv-bench` uses `--preset <name>` and defaults to `short`.
-- **Preset matrix**: `./scripts/bench_matrix.sh` uses `--presets short,medium,long,16k,32k` as a comma-separated list. Any subset and order are valid.
-- **Custom length**: `--prefill-tokens N` overrides the preset for that run. This is useful for smoke tests or lengths not listed above. Named presets remain defined in `PRESET_TOKENS` in `src/oscar_kv_quant/bench.py`.
-
-```bash
-./scripts/bench_matrix.sh \
-  --rot-dir rotation/granite-4.0-1b/GPQA/seq30000_prompt118_group128/rotations \
-  --tag "$(date +%Y%m%d)" \
-  --presets short,medium,long,16k,32k \
-  --modes bf16,int2,oscar-int2
-```
-
-For `16k` and `32k`, the matrix wrapper caps `--max-total-tokens` at `17408` and `38272` respectively, so BF16 and INT2 allocate comparable KV pools. If running `oscar-kv-bench` directly at 32K, pass `--max-total-tokens 38272`; uncapped INT2 KV pools can auto-size much larger and are not directly comparable.
-
-The CUDA graph comparison below was captured on RTX 5050 with `max_new_tokens=64` and the completions API. It reports BF16, plain INT2, and OSCAR INT2 with CUDA graph enabled and disabled. Graph-on is the primary OSCAR INT2 path; graph-off is kept for isolation and debugging. Raw outputs live under `results/cuda_graph_compare_matrix/<TAG>/`.
-
-**Metrics** — throughput and memory numbers come from `oscar-kv-bench` CSV fields / SGLang server logs (see `src/oscar_kv_quant/log_metrics.py`). Rows are grouped by **prefill length** (input tokens). **Δ vs BF16** is `(mode − BF16) / BF16`; Peak and KV rows also show absolute MiB delta.
-
-| Metric | Meaning | Better |
-|---|---|---|
-| **Decode first** (tok/s) | Throughput of the **first** logged decode step (`decode_first_tok_s`). Often reflects cold-start / graph-capture effects. | Higher |
-| **Steady** (tok/s) | Median decode throughput after dropping the first step and low flush/scheduler outliers (`decode_steady_median_tok_s`). Main sustained decode speed. | Higher |
-| **P95** (tok/s) | 95th percentile of those steady decode samples (`decode_steady_p95_tok_s`). Tail decode speed; usually ≥ Steady. | Higher |
-| **Peak** (MiB) | Whole-GPU peak memory from `nvidia-smi` (`peak_mib_total`), including weights, CUDA context, workspaces, graph capture, and KV. | Lower |
-| **KV pool K+V** (MiB, measured) | K+V allocator size parsed from the SGLang `KV Cache is allocated...` log line (`kv_k_size_gb` + `kv_v_size_gb`), not a theoretical estimate. | Lower |
-| **Prefill** (tok/s) | Median prompt-ingest throughput while filling the input into KV cache (`prefill_median_tok_s`; first two prefill samples skipped when enough data). | Higher |
-
-To rerun and summarize this matrix:
-
-```bash
-./scripts/cuda_graph_compare_matrix.sh \
-  --tag "$(date +%Y%m%d)" \
-  --presets short,medium,long,16k,32k \
-  --modes bf16,int2,oscar-int2
-
-python scripts/summarize_cuda_graph_matrix.py \
-  results/cuda_graph_compare_matrix/<TAG>
-```
+For rerun commands, preset definitions, and metric details, see [How to rerun and read this matrix](#how-to-rerun-and-read-this-matrix) after the tables.
 
 ### CUDA graph on
 
@@ -386,15 +349,66 @@ Preset mapping: `512` = `short`, `2K` = `medium`, `8K` = `long`, `16K` = `16k`, 
 
 Steady decode **speedup** is graph-on steady ÷ graph-off steady. **Peak Δ** is graph-on peak MiB − graph-off peak MiB from whole-GPU `nvidia-smi` sampling.
 
-| Prefill | BF16 steady × | INT2 steady × | OSCAR steady × | BF16 peak Δ | INT2 peak Δ | OSCAR peak Δ |
+| Prefill | BF16 steady × | OSCAR steady × | plain INT2 steady × | BF16 peak Δ | OSCAR peak Δ | plain INT2 peak Δ |
 |---:|---:|---:|---:|---:|---:|---:|
-| **512** | 1.67× | 1.63× | 1.98× | -4 MiB | -7 MiB | +21 MiB |
-| **2K** | 1.60× | 2.00× | 1.92× | +51 MiB | +30 MiB | +56 MiB |
-| **8K** | 1.43× | 1.60× | 1.76× | +48 MiB | +23 MiB | +31 MiB |
-| **16K** | 1.32× | 1.64× | 1.69× | +21 MiB | +21 MiB | +21 MiB |
-| **32K** | 1.05× | 1.60× | 1.80× | +21 MiB | +21 MiB | +21 MiB |
+| **512** | 1.67× | 1.98× | 1.63× | -4 MiB | +21 MiB | -7 MiB |
+| **2K** | 1.60× | 1.92× | 2.00× | +51 MiB | +56 MiB | +30 MiB |
+| **8K** | 1.43× | 1.76× | 1.60× | +48 MiB | +31 MiB | +23 MiB |
+| **16K** | 1.32× | 1.69× | 1.64× | +21 MiB | +21 MiB | +21 MiB |
+| **32K** | 1.05× | 1.80× | 1.60× | +21 MiB | +21 MiB | +21 MiB |
 
 CUDA graph improves steady decode when the graph-off run completes. OSCAR **8K graph off** still hits the mixed-KV idle/crash path, so that row is a partial timing snapshot. Whole-GPU peak changes only modestly when graph is enabled (~+21 MiB at 16K/32K in this run).
+
+### How to rerun and read this matrix
+
+Raw outputs live under `results/cuda_graph_compare_matrix/<TAG>/`. Throughput and memory numbers come from `oscar-kv-bench` CSV fields / SGLang server logs (see `src/oscar_kv_quant/log_metrics.py`). Rows are grouped by **prefill length** (input tokens). **Δ vs BF16** is `(mode - BF16) / BF16`; Peak and KV rows also show absolute MiB delta.
+
+**Named presets** — these are the valid `--preset` / `--presets` labels. The CLI rejects any other label:
+
+| Preset | Prefill tokens |
+|--------|---------------:|
+| **`short`** | 512 |
+| **`medium`** | 2048 |
+| **`long`** | 8192 |
+| **`16k`** | 16384 |
+| **`32k`** | 32768 |
+
+- **Single bench**: `./scripts/bench.sh` / `oscar-kv-bench` uses `--preset <name>` and defaults to `short`.
+- **Preset matrix**: `./scripts/bench_matrix.sh` uses `--presets short,medium,long,16k,32k` as a comma-separated list. Any subset and order are valid.
+- **Custom length**: `--prefill-tokens N` overrides the preset for that run. This is useful for smoke tests or lengths not listed above. Named presets remain defined in `PRESET_TOKENS` in `src/oscar_kv_quant/bench.py`.
+
+For `16k` and `32k`, the matrix wrapper caps `--max-total-tokens` at `17408` and `38272` respectively, so BF16 and INT2 allocate comparable KV pools. If running `oscar-kv-bench` directly at 32K, pass `--max-total-tokens 38272`; uncapped INT2 KV pools can auto-size much larger and are not directly comparable.
+
+| Metric | Meaning | Better |
+|---|---|---|
+| **Decode first** (tok/s) | Throughput of the **first** logged decode step (`decode_first_tok_s`). Often reflects cold-start / graph-capture effects. | Higher |
+| **Steady** (tok/s) | Median decode throughput after dropping the first step and low flush/scheduler outliers (`decode_steady_median_tok_s`). Main sustained decode speed. | Higher |
+| **P95** (tok/s) | 95th percentile of those steady decode samples (`decode_steady_p95_tok_s`). Tail decode speed; usually ≥ Steady. | Higher |
+| **Peak** (MiB) | Whole-GPU peak memory from `nvidia-smi` (`peak_mib_total`), including weights, CUDA context, workspaces, graph capture, and KV. | Lower |
+| **KV pool K+V** (MiB, measured) | K+V allocator size parsed from the SGLang `KV Cache is allocated...` log line (`kv_k_size_gb` + `kv_v_size_gb`), not a theoretical estimate. | Lower |
+| **Prefill** (tok/s) | Median prompt-ingest throughput while filling the input into KV cache (`prefill_median_tok_s`; first two prefill samples skipped when enough data). | Higher |
+
+To rerun and summarize this matrix:
+
+```bash
+./scripts/cuda_graph_compare_matrix.sh \
+  --tag "$(date +%Y%m%d)" \
+  --presets short,medium,long,16k,32k \
+  --modes bf16,oscar-int2,int2
+
+python scripts/summarize_cuda_graph_matrix.py \
+  results/cuda_graph_compare_matrix/<TAG>
+```
+
+To run the preset matrix without the graph-on/off split:
+
+```bash
+./scripts/bench_matrix.sh \
+  --rot-dir rotation/granite-4.0-1b/GPQA/seq30000_prompt118_group128/rotations \
+  --tag "$(date +%Y%m%d)" \
+  --presets short,medium,long,16k,32k \
+  --modes bf16,oscar-int2,int2
+```
 
 ### RTX 5050 long-prefill limits
 
@@ -403,16 +417,16 @@ The local RTX 5050 8GB long-prefill limit is defined as a **complete** single-re
 | Mode | 6 min limit | Next tested | 10 min limit | Next tested |
 |---|---:|---:|---:|---:|
 | **BF16** | 41952 | 41968 timeout | 41952 | 41968 timeout |
-| **plain INT2** | 65536 | 69632 at 384.74s | 80896 | 81920 at 606.25s |
 | **OSCAR INT2** | 65536 | 69632 at 379.05s | 80896 | 81920 at 601.84s |
+| **plain INT2** | 65536 | 69632 at 384.74s | 80896 | 81920 at 606.25s |
 
 For decode-through capacity, use a separate **HTTP <= 300s** single-request criterion with `max_new_tokens=64`, `mem_fraction_static=0.88`, Triton prefill/decode backends for INT2 modes, and an empty GPU before launch. BF16 is capped by actual SGLang KV allocation: requesting 38400 tokens still profiles only a 38272-token pool. Raw outputs are under `results/kv_capacity_*/`.
 
 | Mode | Max successful KV capacity | Next tested failure | HTTP elapsed at max success | Notes |
 |---|---:|---:|---:|---|
 | **BF16** | 38272 | 38400 requested -> 38272 actual | <=300s at 38272 | Actual allocatable KV pool limit is 38272. |
-| **plain INT2** | 70656 | 71680 timeout | 298.94s | Highest tested success; very close to the 300s boundary. |
 | **OSCAR INT2** | 69632 | 70656 timeout | 274.54s | More headroom at 69632, but 70656/71680/73728 all timed out. |
+| **plain INT2** | 70656 | 71680 timeout | 298.94s | Highest tested success; very close to the 300s boundary. |
 
 Gate a 32K CSV against BF16 and plain INT2:
 
@@ -426,7 +440,7 @@ To search for the largest stable prefill length on the local GPU:
 
 ```bash
 python scripts/probe_max_prefill.py \
-  --modes bf16,int2,oscar-int2 \
+  --modes bf16,oscar-int2,int2 \
   --rot-dir rotation/granite-4.0-1b/GPQA/seq30000_prompt118_group128/rotations \
   --cap 120000 \
   --triton-for-int2-modes
@@ -443,7 +457,26 @@ For OSCAR INT2 runtime configuration sweeps:
 
 ## Accuracy
 
-Benchmarks: GPQA, GSM8K, MATH-500, HumanEval, LiveCodeBench v6, and AIME 25. Each compares BF16, plain INT2, and OSCAR INT2 on Granite 4.0 1B.
+Benchmarks: GPQA, GSM8K, MATH-500, HumanEval, LiveCodeBench v6, and AIME 25. Each compares BF16, OSCAR INT2, and plain INT2 on Granite 4.0 1B.
+
+Accuracy comparison:
+
+| Benchmark | Metric | BF16 | OSCAR INT2 | Δ vs BF16 | Plain INT2 | Δ vs BF16 |
+|---|---|---:|---:|---:|---:|---:|
+| **GPQA** | Score | 23.74 | 24.24 | **+0.50 pt** | 15.66 | **-8.08 pt** |
+| **GSM8K** | Accuracy | 56.0 | 54.5 | **-1.5 pt** | 3.0 | **-53.0 pt** |
+| **MATH500** | Score | 7.40 | 7.20 | **-0.20 pt** | 0.20 | **-7.20 pt** |
+| **LCB V6** | Pass@1 | 7.87 | 6.92 | **-0.95 pt** | 0.00 | **-7.87 pt** |
+| **HumanEval** | Pass@1 | 32.93 | 12.68 | **-20.25 pt** | 0.00 | **-32.93 pt** |
+| **HumanEval** | Pass@2 | 33.66 | 19.88 | **-13.78 pt** | 0.00 | **-33.66 pt** |
+| **HumanEval** | Pass@5 | 34.76 | 32.93 | **-1.83 pt** | 0.00 | **-34.76 pt** |
+| **AIME25** | Score | 0.00 | 0.00 | — | 0.00 | — |
+
+OSCAR INT2 stays close to BF16 on GPQA, GSM8K, MATH500, HumanEval Pass@5, and LCB v6, while plain INT2 collapses across the accuracy suite. HumanEval Pass@1 and Pass@2 remain the main OSCAR INT2 regressions.
+
+For setup and rerun commands, see [How to rerun accuracy](#how-to-rerun-accuracy).
+
+### How to rerun accuracy
 
 Install optional eval dependencies:
 
@@ -451,7 +484,7 @@ Install optional eval dependencies:
 bash scripts/setup_eval_suite.sh
 ```
 
-Run the full Granite suite across BF16, plain INT2, and OSCAR INT2:
+Run the full Granite suite across BF16, OSCAR INT2, and plain INT2:
 
 ```bash
 bash rotation/granite-4.0-1b/eval_accuracy_suite.sh \
@@ -469,21 +502,6 @@ To rerun only missing benchmarks in an existing results tree:
 ```bash
 ./scripts/run_granite_accuracy_fill.sh --only all
 ```
-
-Accuracy comparison:
-
-| Benchmark | Metric | BF16 | OSCAR INT2 | Δ vs BF16 | Plain INT2 | Δ vs BF16 |
-|---|---|---:|---:|---:|---:|---:|
-| **GPQA** | Score | 23.74 | 24.24 | **+0.50 pt** | 15.66 | **-8.08 pt** |
-| **GSM8K** | Accuracy | 56.0 | 54.5 | **-1.5 pt** | 3.0 | **-53.0 pt** |
-| **MATH500** | Score | 7.40 | 7.20 | **-0.20 pt** | 0.20 | **-7.20 pt** |
-| **LCB V6** | Pass@1 | 7.87 | 6.92 | **-0.95 pt** | 0.00 | **-7.87 pt** |
-| **HumanEval** | Pass@1 | 32.93 | 12.68 | **-20.25 pt** | 0.00 | **-32.93 pt** |
-| **HumanEval** | Pass@2 | 33.66 | 19.88 | **-13.78 pt** | 0.00 | **-33.66 pt** |
-| **HumanEval** | Pass@5 | 34.76 | 32.93 | **-1.83 pt** | 0.00 | **-34.76 pt** |
-| **AIME25** | Score | 0.00 | 0.00 | — | 0.00 | — |
-
-OSCAR INT2 stays close to BF16 on GPQA, GSM8K, MATH500, HumanEval Pass@5, and LCB v6, while plain INT2 collapses across the accuracy suite. HumanEval Pass@1 and Pass@2 remain the main OSCAR INT2 regressions.
 
 Compare existing run directories:
 
@@ -544,7 +562,7 @@ Test file index:
 | `tests/test_bench_helpers.py` | Unit tests for bench mode mapping, server command construction, OSCAR env vars, and KV estimate helpers. |
 | `tests/test_cli_dry_run.py` | Dry-run coverage for `oscar_kv_quant.bench` report generation without starting SGLang. |
 | `tests/test_gpu_cuda_optional.py` | Optional CUDA, BF16, SGLang, and FlashInfer environment checks. |
-| `tests/test_kv_estimate.py` | Unit tests for BF16, INT2, and OSCAR mixed-KV byte estimates. |
+| `tests/test_kv_estimate.py` | Unit tests for BF16, OSCAR INT2, and plain INT2 KV byte estimates. |
 | `tests/test_log_metrics.py` | Unit tests for parsing SGLang server logs into bench metrics. |
 | `tests/test_longrun_gate.py` | Unit tests for long-run speed, memory, stability, and log-cleanliness gates. |
 | `tests/test_probe_helpers.py` | Unit tests for probe log, health-check, status, and model-name helpers. |
@@ -580,7 +598,7 @@ runs/                local run artifacts, gitignored
 | `scripts/probe_max_prefill.py` | Binary-search the largest successful Granite prefill length per KV mode |
 | `scripts/bench.sh` / `oscar-kv-bench` | Single preset/mode bench |
 | `scripts/bench_matrix.sh` | Preset x mode bench matrix |
-| `scripts/cuda_graph_compare_matrix.sh` | CUDA graph on/off matrix for BF16, INT2, and OSCAR INT2 |
+| `scripts/cuda_graph_compare_matrix.sh` | CUDA graph on/off matrix for BF16, OSCAR INT2, and plain INT2 |
 | `scripts/summarize_cuda_graph_matrix.py` | Summarize CUDA graph matrix CSVs into README-style tables |
 | `scripts/regression_gate.sh` / `oscar-kv-regression-gate` | CSV gate vs BF16/INT2 |
 | `scripts/config_sweep.sh` / `oscar-kv-config-sweep` | Wrapper for configuration sweeps |
