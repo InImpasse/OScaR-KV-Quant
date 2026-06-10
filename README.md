@@ -220,6 +220,8 @@ For rerun commands, preset definitions, and metric details, see [How to rerun an
 
 ### CUDA graph on
 
+![Granite 4.0 1B on RTX 5050 CUDA graph on results](docs/assets/granite4-cuda-graph-on.png)
+
 Preset mapping: `512` = `short`, `2K` = `medium`, `8K` = `long`, `16K` = `16k`, `32K` = `32k`.
 
 #### Decode first (tok/s, higher better)
