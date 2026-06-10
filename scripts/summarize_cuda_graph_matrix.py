@@ -87,9 +87,9 @@ METRIC_SPECS: tuple[tuple[str, str, int, str], ...] = (
 def _pct_delta(cur: float | None, base: float | None) -> str:
     if cur is None or base is None or base == 0:
         return ""
-    p = int(round((cur - base) / base * 100.0))
+    p = (cur - base) / base * 100.0
     sign = "+" if p > 0 else ""
-    return f"{sign}{p}%"
+    return f"{sign}{p:.2f}%"
 
 
 def _delta_mib(cur: int | None, base: int | None) -> str:
@@ -98,6 +98,13 @@ def _delta_mib(cur: int | None, base: int | None) -> str:
     d = cur - base
     sign = "+" if d > 0 else ""
     return f"{sign}{d} MiB"
+
+
+def _memory_ratio(cur: int | None, base: int | None) -> str:
+    if cur is None or base is None or cur <= 0 or base <= 0:
+        return ""
+    ratio = max(cur, base) / min(cur, base)
+    return f"~{ratio:.2f}x"
 
 
 def _mode_vs_bf16_pct(
@@ -125,9 +132,11 @@ def _mode_vs_bf16_memory(
             return ""
     pct = _pct_delta(float(c_int), float(b_int))
     dm = _delta_mib(c_int, b_int)
-    if pct and dm:
-        return f"{pct} ({dm})"
-    return pct or dm
+    ratio = _memory_ratio(c_int, b_int)
+    details = ", ".join(x for x in (dm, ratio) if x)
+    if pct and details:
+        return f"{pct} ({details})"
+    return pct or details
 
 
 _TABLE_HEADER = (

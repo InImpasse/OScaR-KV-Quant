@@ -17,7 +17,7 @@ Validated path: **Granite 4.0 1B** on WSL2 + RTX 5050 8GB.
 
 - CUDA graph is the primary OSCAR INT2 runtime path here; it improves steady decode throughput versus graph-off runs, with only modest whole-GPU peak-memory changes in the measured matrix.
 - OSCAR INT2 substantially reduces the measured KV pool at long context. At 32K, the CUDA-graph-on run uses 512 MiB K+V pool versus 2990 MiB for BF16.
-- Under the separate decode-through capacity criterion (`max_new_tokens=64`, HTTP <= 300s), OSCAR INT2 reaches 69632 tokens versus BF16's 38272-token allocatable KV limit, about **+82%** more context capacity. Plain INT2 reaches 70656 tokens (**+85%**), but with the accuracy collapse noted below.
+- Under the separate decode-through capacity criterion (`max_new_tokens=64`, HTTP <= 300s), OSCAR INT2 reaches 69632 tokens versus BF16's 38272-token allocatable KV limit, about **+82%** more context capacity. Plain INT2 reaches 70656 tokens **+85%**, but with the accuracy collapse noted below.
 - Whole-GPU peak memory falls much less than the KV pool because the peak also includes BF16 model weights, CUDA context, allocator reserves, workspaces, graph-capture buffers, and runtime overhead. To push total VRAM lower, a follow-up direction is the [`llamacpp-kv-harness`](https://github.com/InImpasse/OSCAR-KV-Quant/tree/llamacpp-kv-harness) branch, which tests llama.cpp + GGUF KV-cache formats.
 - OSCAR INT2 preserves far more accuracy than plain INT2, which has the smallest KV pool but collapses on the accuracy suite. HumanEval Pass@1/Pass@2 remain the main OSCAR INT2 regressions.
 - Results are local to Granite 4.0 1B on RTX 5050 8GB. They are not official OSCAR paper numbers and should not be compared directly to H100 / larger-model results.
