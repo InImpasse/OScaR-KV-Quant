@@ -23,11 +23,123 @@ VRAM_POLL_INTERVAL="${VRAM_POLL_INTERVAL:-0.2}"
 MEASURE_VRAM="${MEASURE_VRAM:-1}"
 RUN_PREFLIGHT="${RUN_PREFLIGHT:-1}"
 ALLOW_BUSY_GPU="${ALLOW_BUSY_GPU:-0}"
+DRY_RUN="${DRY_RUN:-1}"
+ACK_PPL_MATRIX="${ACK_PPL_MATRIX:-0}"
 MAX_BASELINE_MIB="${MAX_BASELINE_MIB:-1024}"
 WAIT_FOR_IDLE_GPU="${WAIT_FOR_IDLE_GPU:-0}"
 GPU_IDLE_TIMEOUT_SEC="${GPU_IDLE_TIMEOUT_SEC:-0}"
 GPU_IDLE_POLL_SEC="${GPU_IDLE_POLL_SEC:-5}"
 PPL_OUTPUT_RE='(Final estimate:[[:space:]]*)?PPL[[:space:]]*='
+
+IFS=',' read -ra MODEL_ENTRIES <<< "$MODELS"
+IFS=',' read -ra CONTEXT_ENTRIES <<< "$CONTEXTS"
+IFS=',' read -ra KV_ENTRIES <<< "${KV_PAIRS:-$KV_MODES}"
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  echo "DRY_RUN config:"
+  echo "  llama_perplexity=$LLAMA_PPL"
+  echo "  models=$MODELS"
+  echo "  contexts=$CONTEXTS"
+  echo "  kv_modes=$KV_MODES"
+  echo "  kv_pairs=${KV_PAIRS:-$KV_MODES}"
+  echo "  corpus=${CORPUS:-<unset>}"
+  echo "  chunks=$CHUNKS"
+  echo "  batch_size=$BATCH_SIZE"
+  echo "  n_gpu_layers=$N_GPU_LAYERS"
+  echo "  flash_attn=$FLASH_ATTN"
+  echo "  measure_vram=$MEASURE_VRAM"
+  echo "  output_dir=$OUT_DIR"
+  echo
+  for model_entry in "${MODEL_ENTRIES[@]}"; do
+    model_name="${model_entry%%:*}"
+    model_path="${model_entry#*:}"
+    for context_entry in "${CONTEXT_ENTRIES[@]}"; do
+      context_name="${context_entry%%:*}"
+      context_size="${context_entry#*:}"
+      for kv_entry in "${KV_ENTRIES[@]}"; do
+        if [[ "$kv_entry" == */* ]]; then
+          kv_mode_k="${kv_entry%%/*}"
+          kv_mode_v="${kv_entry#*/}"
+        else
+          kv_mode_k="$kv_entry"
+          kv_mode_v="$kv_entry"
+        fi
+        if [[ "$kv_mode_k" == q2_0_* ]]; then
+          cache_type_k="q2_0"
+        else
+          cache_type_k="$kv_mode_k"
+        fi
+        if [[ "$kv_mode_v" == q2_0_* ]]; then
+          cache_type_v="q2_0"
+        else
+          cache_type_v="$kv_mode_v"
+        fi
+        if [[ "$kv_mode_k" == "q2_0_hp" || "$kv_mode_v" == "q2_0_hp" ]]; then
+          dry_hp_sink="$HP_SINK"
+          dry_hp_recent="$HP_RECENT"
+        else
+          dry_hp_sink=0
+          dry_hp_recent=0
+        fi
+        if [[ "$kv_mode_k" == q2_0_owht* || "$kv_mode_v" == q2_0_owht* ]]; then
+          dry_owht=1
+        else
+          dry_owht=0
+        fi
+        if [[ "$kv_mode_k" == *nohad* || "$kv_mode_v" == *nohad* ]]; then
+          dry_no_hadamard=1
+        else
+          dry_no_hadamard=0
+        fi
+        if [[ "$kv_mode_k" == *clip* || "$kv_mode_v" == *clip* ]]; then
+          dry_clip_ratio="$Q2_0_CLIP_RATIO"
+        else
+          dry_clip_ratio=0
+        fi
+        if [[ "$kv_mode_k" == "$kv_mode_v" ]]; then
+          kv_name="$kv_mode_k"
+        else
+          kv_name="k${kv_mode_k}_v${kv_mode_v}"
+        fi
+        label="${model_name}_${context_name}_${kv_name}_c${context_size}_chunks${CHUNKS}"
+        cmd=(
+          env
+          LLAMA_KV_HP_SINK="$dry_hp_sink"
+          LLAMA_KV_HP_RECENT="$dry_hp_recent"
+          LLAMA_KV_Q2_0_OWHT="$dry_owht"
+          LLAMA_KV_NO_HADAMARD="$dry_no_hadamard"
+          LLAMA_KV_CLIP_RATIO="$dry_clip_ratio"
+          "$LLAMA_PPL"
+          -m "$model_path"
+          -f "${CORPUS:-<unset>}"
+          -c "$context_size"
+          -b "$BATCH_SIZE"
+          -ngl "$N_GPU_LAYERS"
+          -fa "$FLASH_ATTN"
+          --chunks "$CHUNKS"
+          --cache-type-k "$cache_type_k"
+          --cache-type-v "$cache_type_v"
+        )
+        printf 'DRY_RUN command:'
+        if [[ "$MEASURE_VRAM" == "1" ]]; then
+          printf ' %q' "$ROOT_DIR/scripts/measure_vram.sh" "$OUT_DIR" "$label" -- "${cmd[@]}"
+        else
+          printf ' %q' "${cmd[@]}"
+        fi
+        printf '\n'
+      done
+    done
+  done
+  echo
+  echo "Dry run complete; no executable checks, corpus checks, preflight, GPU checks, or results written. Set DRY_RUN=0 ACK_PPL_MATRIX=1 to run intentionally."
+  exit 0
+fi
+
+if [[ "$ACK_PPL_MATRIX" != "1" ]]; then
+  echo "Refusing PPL matrix without ACK_PPL_MATRIX=1." >&2
+  echo "Use DRY_RUN=1 to inspect commands or ACK_PPL_MATRIX=1 DRY_RUN=0 to run intentionally." >&2
+  exit 1
+fi
 
 if [[ ! -x "$LLAMA_PPL" ]]; then
   echo "llama-perplexity not found at $LLAMA_PPL." >&2
@@ -128,6 +240,8 @@ mkdir -p "$OUT_DIR"
   echo "hp_recent=$HP_RECENT"
   echo "measure_vram=$MEASURE_VRAM"
   echo "vram_poll_interval=$VRAM_POLL_INTERVAL"
+  echo "dry_run=$DRY_RUN"
+  echo "ack_ppl_matrix=$ACK_PPL_MATRIX"
   echo "allow_busy_gpu=$ALLOW_BUSY_GPU"
   echo "max_baseline_mib=$MAX_BASELINE_MIB"
   echo "wait_for_idle_gpu=$WAIT_FOR_IDLE_GPU"
@@ -138,10 +252,6 @@ mkdir -p "$OUT_DIR"
   printf '%s\n' "$guard_gpu_processes"
   echo "guard_gpu_processes_end"
 } > "$OUT_DIR/config.txt"
-
-IFS=',' read -ra MODEL_ENTRIES <<< "$MODELS"
-IFS=',' read -ra CONTEXT_ENTRIES <<< "$CONTEXTS"
-IFS=',' read -ra KV_ENTRIES <<< "${KV_PAIRS:-$KV_MODES}"
 
 kv_cache_type() {
   local mode="$1"

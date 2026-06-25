@@ -22,10 +22,111 @@ HP_RECENT="${HP_RECENT:-2048}"
 VRAM_POLL_INTERVAL="${VRAM_POLL_INTERVAL:-0.2}"
 RUN_PREFLIGHT="${RUN_PREFLIGHT:-1}"
 ALLOW_BUSY_GPU="${ALLOW_BUSY_GPU:-0}"
+DRY_RUN="${DRY_RUN:-1}"
+ACK_MATRIX_BENCH="${ACK_MATRIX_BENCH:-0}"
 MAX_BASELINE_MIB="${MAX_BASELINE_MIB:-1024}"
 WAIT_FOR_IDLE_GPU="${WAIT_FOR_IDLE_GPU:-0}"
 GPU_IDLE_TIMEOUT_SEC="${GPU_IDLE_TIMEOUT_SEC:-0}"
 GPU_IDLE_POLL_SEC="${GPU_IDLE_POLL_SEC:-5}"
+
+IFS=',' read -ra MODEL_ENTRIES <<< "$MODELS"
+IFS=',' read -ra LENGTH_ENTRIES <<< "$LENGTHS"
+IFS=',' read -ra KV_ENTRIES <<< "${KV_PAIRS:-$KV_MODES}"
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  echo "DRY_RUN config:"
+  echo "  llama_bench=$LLAMA_BENCH"
+  echo "  models=$MODELS"
+  echo "  lengths=$LENGTHS"
+  echo "  kv_modes=$KV_MODES"
+  echo "  kv_pairs=${KV_PAIRS:-$KV_MODES}"
+  echo "  context=$CONTEXT"
+  echo "  gen_tokens=$GEN_TOKENS"
+  echo "  repetitions=$REPETITIONS"
+  echo "  flash_attn=$FLASH_ATTN"
+  echo "  output_dir=$OUT_DIR"
+  echo
+  for model_entry in "${MODEL_ENTRIES[@]}"; do
+    model_name="${model_entry%%:*}"
+    model_path="${model_entry#*:}"
+    for length_entry in "${LENGTH_ENTRIES[@]}"; do
+      length_name="${length_entry%%:*}"
+      prompt_tokens="${length_entry#*:}"
+      for kv_entry in "${KV_ENTRIES[@]}"; do
+        if [[ "$kv_entry" == */* ]]; then
+          kv_mode_k="${kv_entry%%/*}"
+          kv_mode_v="${kv_entry#*/}"
+        else
+          kv_mode_k="$kv_entry"
+          kv_mode_v="$kv_entry"
+        fi
+        cache_type_k="${kv_mode_k%%_*}"
+        cache_type_v="${kv_mode_v%%_*}"
+        if [[ "$kv_mode_k" == q2_0* ]]; then
+          cache_type_k="q2_0"
+        else
+          cache_type_k="$kv_mode_k"
+        fi
+        if [[ "$kv_mode_v" == q2_0* ]]; then
+          cache_type_v="q2_0"
+        else
+          cache_type_v="$kv_mode_v"
+        fi
+        if [[ "$kv_mode_k" == "q2_0_hp" || "$kv_mode_v" == "q2_0_hp" ]]; then
+          dry_hp_sink="$HP_SINK"
+          dry_hp_recent="$HP_RECENT"
+        else
+          dry_hp_sink=0
+          dry_hp_recent=0
+        fi
+        if [[ "$kv_mode_k" == q2_0_owht* || "$kv_mode_v" == q2_0_owht* ]]; then
+          dry_owht=1
+        else
+          dry_owht=0
+        fi
+        if [[ "$kv_mode_k" == *nohad* || "$kv_mode_v" == *nohad* ]]; then
+          dry_no_hadamard=1
+        else
+          dry_no_hadamard=0
+        fi
+        if [[ "$kv_mode_k" == *clip* || "$kv_mode_v" == *clip* ]]; then
+          dry_clip_ratio="$Q2_0_CLIP_RATIO"
+        else
+          dry_clip_ratio=0
+        fi
+        label="${model_name}_${length_name}_${kv_mode_k}_${kv_mode_v}_p${prompt_tokens}_n${GEN_TOKENS}"
+        printf 'DRY_RUN command:'
+        printf ' %q' "$ROOT_DIR/scripts/measure_vram.sh" "$OUT_DIR" "$label" -- \
+          env \
+          LLAMA_KV_HP_SINK="$dry_hp_sink" \
+          LLAMA_KV_HP_RECENT="$dry_hp_recent" \
+          LLAMA_KV_Q2_0_OWHT="$dry_owht" \
+          LLAMA_KV_NO_HADAMARD="$dry_no_hadamard" \
+          LLAMA_KV_CLIP_RATIO="$dry_clip_ratio" \
+          "$LLAMA_BENCH" \
+          -m "$model_path" \
+          -p "$prompt_tokens" \
+          -n "$GEN_TOKENS" \
+          -ngl "$N_GPU_LAYERS" \
+          -fa "$FLASH_ATTN" \
+          -r "$REPETITIONS" \
+          --cache-type-k "$cache_type_k" \
+          --cache-type-v "$cache_type_v" \
+          --output json
+        printf ' > %q\n' "$OUT_DIR/$label.json.summary.stdout"
+      done
+    done
+  done
+  echo
+  echo "Dry run complete; no preflight, GPU checks, or results written. Set DRY_RUN=0 ACK_MATRIX_BENCH=1 to run intentionally."
+  exit 0
+fi
+
+if [[ "$ACK_MATRIX_BENCH" != "1" ]]; then
+  echo "Refusing KV matrix benchmark without ACK_MATRIX_BENCH=1." >&2
+  echo "Use DRY_RUN=1 to inspect commands or ACK_MATRIX_BENCH=1 DRY_RUN=0 to run intentionally." >&2
+  exit 1
+fi
 
 if [[ ! -x "$LLAMA_BENCH" ]]; then
   echo "llama-bench not found at $LLAMA_BENCH. Build first or set LLAMA_BENCH=/path/to/llama-bench." >&2
@@ -109,6 +210,8 @@ mkdir -p "$OUT_DIR"
   echo "hp_sink=$HP_SINK"
   echo "hp_recent=$HP_RECENT"
   echo "vram_poll_interval=$VRAM_POLL_INTERVAL"
+  echo "dry_run=$DRY_RUN"
+  echo "ack_matrix_bench=$ACK_MATRIX_BENCH"
   echo "allow_busy_gpu=$ALLOW_BUSY_GPU"
   echo "max_baseline_mib=$MAX_BASELINE_MIB"
   echo "wait_for_idle_gpu=$WAIT_FOR_IDLE_GPU"
@@ -119,10 +222,6 @@ mkdir -p "$OUT_DIR"
   printf '%s\n' "$guard_gpu_processes"
   echo "guard_gpu_processes_end"
 } > "$OUT_DIR/config.txt"
-
-IFS=',' read -ra MODEL_ENTRIES <<< "$MODELS"
-IFS=',' read -ra LENGTH_ENTRIES <<< "$LENGTHS"
-IFS=',' read -ra KV_ENTRIES <<< "${KV_PAIRS:-$KV_MODES}"
 
 kv_cache_type() {
   local mode="$1"
