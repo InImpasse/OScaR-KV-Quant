@@ -34,6 +34,9 @@ KV_TYPES=f16,q8_0,q4_0,q2_0 \
 ./scripts/bench_kv_cache.sh
 ```
 
+This defaults to `DRY_RUN=1`. For a real run, add
+`DRY_RUN=0 ACK_HEAVY_CONTEXT=1` after confirming the GPU is idle.
+
 If the GPU runs out of memory, lower one variable at a time:
 
 - reduce `CONTEXT` to `16384`;

@@ -135,6 +135,7 @@ RotateKV 后，下一步不应只改存储格式，而要把低比特 KV 当作 
 WAIT_FOR_IDLE_GPU=1 \
 GPU_IDLE_TIMEOUT_SEC=3600 \
 GPU_IDLE_POLL_SEC=10 \
+DRY_RUN=0 ACK_MATRIX_BENCH=1 \
 ./scripts/bench_kv_cache_matrix.sh
 ```
 
@@ -160,6 +161,7 @@ CORPUS=/path/to/wiki.test.raw \
 WAIT_FOR_IDLE_GPU=1 \
 GPU_IDLE_TIMEOUT_SEC=3600 \
 GPU_IDLE_POLL_SEC=10 \
+DRY_RUN=0 ACK_PPL_MATRIX=1 \
 ./scripts/run_kv_ppl_matrix.sh
 ```
 
@@ -175,6 +177,7 @@ KV_PAIRS=f16/f16,q8_0/q2_0 \
 CHUNKS=1 \
 N_GPU_LAYERS=0 \
 MEASURE_VRAM=0 \
+DRY_RUN=0 ACK_PPL_MATRIX=1 \
 ./scripts/run_kv_ppl_matrix.sh
 ```
 
@@ -198,6 +201,7 @@ MEASURE_VRAM=0 \
 
 ```bash
 KV_PAIRS=f16/f16,q8_0/q2_0,q2_0/q8_0,q2_0/q2_0 \
+DRY_RUN=0 ACK_MATRIX_BENCH=1 \
 ./scripts/bench_kv_cache_matrix.sh
 ```
 
@@ -206,6 +210,7 @@ KV_PAIRS=f16/f16,q8_0/q2_0,q2_0/q8_0,q2_0/q2_0 \
 ```bash
 KV_MODES=f16,q2_0,q2_0_owht,q2_0_owht_nohad_clip \
 Q2_0_CLIP_RATIO=0.96 \
+DRY_RUN=0 ACK_MATRIX_BENCH=1 \
 ./scripts/bench_kv_cache_matrix.sh
 ```
 

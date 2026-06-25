@@ -1,0 +1,9 @@
+label=baseline_bf16_p32768_n1
+exit_code=0
+duration_ms=31065
+baseline_mib=119
+peak_mib=6160
+delta_mib=6041
+stdout=/tmp/llamacpp_32k_bf16_current/baseline_bf16_p32768_n1.stdout.txt
+stderr=/tmp/llamacpp_32k_bf16_current/baseline_bf16_p32768_n1.stderr.txt
+metrics=/tmp/llamacpp_32k_bf16_current/baseline_bf16_p32768_n1.metrics.tsv

@@ -1,0 +1,9 @@
+label=oscar_int4_p32768_n1
+exit_code=0
+duration_ms=30864
+baseline_mib=119
+peak_mib=4324
+delta_mib=4205
+stdout=/tmp/llamacpp_32k_oscar_int4_current/oscar_int4_p32768_n1.stdout.txt
+stderr=/tmp/llamacpp_32k_oscar_int4_current/oscar_int4_p32768_n1.stderr.txt
+metrics=/tmp/llamacpp_32k_oscar_int4_current/oscar_int4_p32768_n1.metrics.tsv

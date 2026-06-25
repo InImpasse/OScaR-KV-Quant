@@ -46,6 +46,7 @@ LLAMACPP_CMAKE_ARGS="-DLLAMA_CURL=OFF -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=
 ```bash
 MODEL=/home/lenovo/project/OSCAR-KV-Quant/checkpoints/gguf/granite-4.0-1b-base-bf16.gguf \
 CONTEXT=8192 KV_TYPE=f16 PREDICT=64 N_GPU_LAYERS=999 \
+DRY_RUN=0 ACK_RUN_LLAMA=1 \
 PROMPT="Say hello in one sentence." \
 ./scripts/run_llamacpp.sh
 ```
@@ -58,7 +59,9 @@ PROMPT="Say hello in one sentence." \
 
 ### 4.1 使用现有 `bench_kv_cache.sh`
 
-脚本默认 **`CONTEXT=32768`**、**`PROMPT_TOKENS=4096`**。在 8GB 上若 OOM，**每次只改一个变量**向下探：
+脚本默认 **`DRY_RUN=1`**，只打印命令；真实运行必须显式设置
+`DRY_RUN=0 ACK_HEAVY_CONTEXT=1`。默认 workload 是
+**`CONTEXT=32768`**、**`PROMPT_TOKENS=4096`**，在 8GB 上若 OOM，**每次只改一个变量**向下探：
 
 1. **`CONTEXT`**：`32768` → `16384` → `8192`
 2. **`PROMPT_TOKENS`**：`4096` → `2048` → `1024`
@@ -70,6 +73,7 @@ PROMPT="Say hello in one sentence." \
 MODEL=/home/lenovo/project/OSCAR-KV-Quant/checkpoints/gguf/granite-4.0-1b-base-bf16.gguf \
 CONTEXT=16384 PROMPT_TOKENS=2048 GEN_TOKENS=512 N_GPU_LAYERS=999 \
 KV_TYPES=f16,q8_0,q4_0,q2_0 \
+DRY_RUN=0 ACK_HEAVY_CONTEXT=1 \
 ./scripts/bench_kv_cache.sh
 ```
 
@@ -131,9 +135,9 @@ KV_TYPES=f16,q8_0,q4_0,q2_0 \
 
 | 动作 | 命令 |
 |------|------|
-| 编译 | `LLAMACPP_CMAKE_ARGS="-DLLAMA_CURL=OFF -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=native" ./scripts/build_llamacpp.sh` |
-| 单次推理 | `MODEL=.../granite-4.0-1b-base-bf16.gguf CONTEXT=8192 KV_TYPE=q4_0 ./scripts/run_llamacpp.sh` |
-| KV 对比 | `MODEL=... CONTEXT=... PROMPT_TOKENS=... ./scripts/bench_kv_cache.sh` |
+| 编译 | `BUILD_DIR=third_party/OSCAR/build-cuda LLAMACPP_CMAKE_ARGS="-DLLAMA_CURL=OFF -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=native" ./scripts/build_llamacpp.sh` |
+| 单次推理 | `MODEL=.../granite-4.0-1b-base-bf16.gguf CONTEXT=8192 KV_TYPE=q4_0 DRY_RUN=0 ACK_RUN_LLAMA=1 ./scripts/run_llamacpp.sh` |
+| KV 对比 | `MODEL=... CONTEXT=... PROMPT_TOKENS=... DRY_RUN=0 ACK_HEAVY_CONTEXT=1 ./scripts/bench_kv_cache.sh` |
 
 ---
 

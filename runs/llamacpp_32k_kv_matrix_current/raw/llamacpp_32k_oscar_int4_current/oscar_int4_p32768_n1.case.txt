@@ -1,0 +1,6 @@
+model=granite-4.0-1b-base-bf16-rot-kv.gguf
+cache_type_k=q4_0
+cache_type_v=q4_0
+llama_kv_no_hadamard=1
+llama_kv_clip_ratio=0.96
+case_timeout_sec=90

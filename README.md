@@ -45,9 +45,13 @@ GGUF_DIR=/path/to/models ./scripts/download_gguf_models.sh
 ./scripts/build_llamacpp.sh
 ```
 
+The default build directory is `third_party/OSCAR/build-cuda` with
+`-DGGML_CUDA=ON`, matching the benchmark harnesses in this workspace.
+
 CPU-only build:
 
 ```bash
+BUILD_DIR=third_party/OSCAR/build \
 LLAMACPP_CMAKE_ARGS="-DLLAMA_CURL=OFF -DGGML_METAL=OFF -DGGML_CUDA=OFF" \
   ./scripts/build_llamacpp.sh
 ```
@@ -55,6 +59,7 @@ LLAMACPP_CMAKE_ARGS="-DLLAMA_CURL=OFF -DGGML_METAL=OFF -DGGML_CUDA=OFF" \
 CUDA build example:
 
 ```bash
+BUILD_DIR=third_party/OSCAR/build-cuda \
 LLAMACPP_CMAKE_ARGS="-DLLAMA_CURL=OFF -DGGML_CUDA=ON" \
   ./scripts/build_llamacpp.sh
 ```
@@ -68,6 +73,9 @@ CONTEXT=32768 \
 PROMPT="Summarize why KV cache memory grows with context length." \
 ./scripts/run_llamacpp.sh
 ```
+
+This defaults to `DRY_RUN=1`. To run the prompt intentionally, add
+`DRY_RUN=0 ACK_RUN_LLAMA=1`.
 
 KV cache formats:
 
@@ -92,7 +100,10 @@ GEN_TOKENS=512 \
 ./scripts/bench_kv_cache.sh
 ```
 
-Results are written to `runs/llamacpp_kv_<timestamp>/`.
+This prints the commands first because the script defaults to `DRY_RUN=1`; the
+default context/decode settings are heavy. To run intentionally, use
+`DRY_RUN=0 ACK_HEAVY_CONTEXT=1`; results are then written to
+`runs/llamacpp_kv_<timestamp>/`.
 
 For an 8 GB GPU, Granite BF16 is the safer first target. Gemma E2B BF16 is much
 larger and may require CPU execution or partial GPU offload.
@@ -110,9 +121,9 @@ model-specific.
 as the Qwen3 calibration — one `head_dim × head_dim` matrix per layer), bake them
 with `third_party/OSCAR/oscar-rotation/export_rot_kv_gguf.py` into a
 `*-rot-kv.gguf`. Producing those `.pt` files is **not** in this repo: upstream
-OSCAR `README.md` describes GPQA activation dumps (e.g. via sglang) and the
-**CoQuant `rotation/`** scripts for the `METHOD=qqt_sst` step; you need that
-toolchain or an equivalent on your GPU.
+OSCAR `README.md` describes GPQA activation dumps and the **CoQuant `rotation/`**
+scripts for the `METHOD=qqt_sst` step; you need that toolchain or an equivalent
+activation-dump pipeline on your GPU.
 
 **Gemma** and any model without the optional rotation tensors can still test KV
 cache formats, but they are not calibrated OSCAR runs until matching rotations

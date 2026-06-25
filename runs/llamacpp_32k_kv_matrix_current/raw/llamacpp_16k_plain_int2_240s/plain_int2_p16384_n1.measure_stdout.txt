@@ -1,0 +1,9 @@
+label=plain_int2_p16384_n1
+exit_code=0
+duration_ms=184583
+baseline_mib=119
+peak_mib=3792
+delta_mib=3673
+stdout=/tmp/llamacpp_16k_plain_int2_240s/plain_int2_p16384_n1.stdout.txt
+stderr=/tmp/llamacpp_16k_plain_int2_240s/plain_int2_p16384_n1.stderr.txt
+metrics=/tmp/llamacpp_16k_plain_int2_240s/plain_int2_p16384_n1.metrics.tsv

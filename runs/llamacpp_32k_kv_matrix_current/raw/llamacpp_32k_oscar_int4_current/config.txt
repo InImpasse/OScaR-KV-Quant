@@ -1,0 +1,15 @@
+llama_bench=/home/lenovo/project/OSCAR-KV-Quant/third_party/OSCAR/build-cuda/bin/llama-bench
+base_model=/home/lenovo/project/OSCAR-KV-Quant/checkpoints/gguf/granite-4.0-1b-base-bf16.gguf
+oscar_model=/home/lenovo/project/OSCAR-KV-Quant/checkpoints/gguf/granite-4.0-1b-base-bf16-rot-kv.gguf
+prompt_tokens=32768
+gen_tokens=1
+repetitions=1
+n_gpu_layers=999
+flash_attn=1
+vram_poll_interval=0.5
+baseline_mib=119
+unsupported_plain_int3=q3 KV cache is not exposed by this llama.cpp branch; supported cache types are listed in third_party/OSCAR/common/arg.cpp.
+cases=oscar_int4
+case_timeout_sec=90
+ack_heavy_32k=0
+dry_run=0

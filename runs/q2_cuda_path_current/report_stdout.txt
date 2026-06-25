@@ -1,0 +1,8 @@
+KQ q2_0: function=vec_dot_fattn_vec_KQ_q2_0_chunk dp4a=3 lut=sign+high mean=m*usum scalar_decode=no dispatch=yes fingerprint=74f4ef3faf97
+KQ q4_0: function=vec_dot_fattn_vec_KQ_q4_0 dp4a=1 lut=no mean=no scalar_decode=no dispatch=yes fingerprint=e20c13a1a976
+V q2_0: function=dequantize_V_q2_0 dp4a=0 lut=no mean=no scalar_decode=yes dispatch=yes fingerprint=ce47fcf759a4
+V q4_0: function=dequantize_V_q4_0 dp4a=0 lut=no mean=no scalar_decode=no dispatch=yes fingerprint=f6db587f4d66
+dispatch KQ: function=get_vec_dot_KQ dp4a=0 lut=n/a mean=n/a scalar_decode=n/a dispatch=yes fingerprint=45497c2d2b49
+dispatch V: function=get_dequantize_V dp4a=0 lut=n/a mean=n/a scalar_decode=n/a dispatch=yes fingerprint=7b3a01f59c12
+wrote runs/q2_cuda_path_current/q2_cuda_path.csv
+wrote runs/q2_cuda_path_current/q2_cuda_path.md

@@ -1,0 +1,9 @@
+label=oscar_int2_p16384_n1
+exit_code=0
+duration_ms=183669
+baseline_mib=126
+peak_mib=3796
+delta_mib=3670
+stdout=/tmp/llamacpp_16k_oscar_int2_240s/oscar_int2_p16384_n1.stdout.txt
+stderr=/tmp/llamacpp_16k_oscar_int2_240s/oscar_int2_p16384_n1.stderr.txt
+metrics=/tmp/llamacpp_16k_oscar_int2_240s/oscar_int2_p16384_n1.metrics.tsv

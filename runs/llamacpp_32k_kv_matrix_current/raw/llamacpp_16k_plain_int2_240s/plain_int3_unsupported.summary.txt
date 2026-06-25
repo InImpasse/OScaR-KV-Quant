@@ -1,0 +1,3 @@
+label=plain_int3_unsupported
+exit_code=2
+reason=q3 KV cache is not exposed by this llama.cpp branch; common/arg.cpp supports f32,f16,bf16,q8_0,q4_0,q4_1,iq4_nl,q5_0,q5_1,q2_0.

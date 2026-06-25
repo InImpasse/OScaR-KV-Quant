@@ -1,0 +1,3 @@
+variant,status,model,prompt,gen,cache_k,cache_v,kv_pool_mib,baseline_mib,peak_mib,delta_mib,pp_tps,tg_tps,reason
+plain_int4,ok,granite-4.0-1b-base-bf16.gguf,32768,1,q4_0,q4_0,720.0,119,4324,4205,2265.018455,40.974817,
+plain_int3,unsupported,,,,,,,,,,,,"q3 KV cache is not exposed by this llama.cpp branch; common/arg.cpp supports f32,f16,bf16,q8_0,q4_0,q4_1,iq4_nl,q5_0,q5_1,q2_0."

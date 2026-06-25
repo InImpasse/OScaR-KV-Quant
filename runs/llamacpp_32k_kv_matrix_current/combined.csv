@@ -1,0 +1,9 @@
+variant,status,prompt,kv,kv_pool_mib,peak_mib,delta_mib,max_peak_mib,limit_triggered,exit_code,pp_tps,tg_tps,peak_saved_vs_bf16_mib,kv_saved_vs_bf16_mib,reason,run_dir
+oscar_int2,ok,16384,q2_0/q2_0,240.0,3796,3670,,,,183.693112,28.008267,,,,runs/llamacpp_32k_kv_matrix_current/raw/llamacpp_16k_oscar_int2_240s
+plain_int2,ok,16384,q2_0/q2_0,240.0,3792,3673,,,,179.997972,44.140337,,,,runs/llamacpp_32k_kv_matrix_current/raw/llamacpp_16k_plain_int2_240s
+baseline_bf16,ok,32768,bf16/bf16,2560.0,6160,6041,,,,2486.447077,41.63384,0.0,0.0,,runs/llamacpp_32k_kv_matrix_current/raw/llamacpp_32k_bf16_current
+oscar_turbo2_streamk,ok,32768,turbo2/turbo2,340.0,3777,3765,6500,0,0,3984.711113,40.015508,2383.0,2220.0,,runs/oscar_turbo2_streamk_32k_current
+turbo2_streamk,ok,32768,turbo2/turbo2,340.0,3771,3759,6500,0,0,4256.709351,39.011862,2389.0,2220.0,,runs/turbo2_streamk_32k_current
+oscar_int4,ok,32768,q4_0/q4_0,720.0,4324,4205,,,,2533.822348,39.217172,1836.0,1840.0,,runs/llamacpp_32k_kv_matrix_current/raw/llamacpp_32k_oscar_int4_current
+plain_int4,ok,32768,q4_0/q4_0,720.0,4324,4205,,,,2265.018455,40.974817,1836.0,1840.0,,runs/llamacpp_32k_kv_matrix_current/raw/llamacpp_32k_plain_int4_current
+oscar_int2,failed,32768,q2_0/q2_0,480.0,4036,3910,,,,,,2124.0,2080.0,missing or invalid llama-bench JSON,runs/llamacpp_32k_kv_matrix_current/raw/llamacpp_32k_oscar_int2_480s

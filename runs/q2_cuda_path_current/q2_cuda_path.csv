@@ -1,0 +1,7 @@
+path,type,function,dp4a_calls,lut,mean_term,scalar_decode,dispatch,fingerprint,note
+KQ,q2_0,vec_dot_fattn_vec_KQ_q2_0_chunk,3,sign+high,m*usum,no,yes,74f4ef3faf97d5e6b31a5429feb539a30a995190a78722b9a1152e35544e0760,exact q2 reconstruction
+KQ,q4_0,vec_dot_fattn_vec_KQ_q4_0,1,no,no,no,yes,e20c13a1a9764ab2e0d4c8642fb7f5e6758d91ee085efa5cbcf1a315ee91e003,q4 comparison path
+V,q2_0,dequantize_V_q2_0,0,no,no,yes,yes,ce47fcf759a4d3e67b4f4655082c9c929b0a7f6e8c82f94dc65d01f99e4ddccb,scalar q2 dequant per V lane
+V,q4_0,dequantize_V_q4_0,0,no,no,no,yes,f6db587f4d6617e98c7d170188111be6f6ef095709f2e6ee0a1bdd3b7ba455a2,packed nibble dequant
+dispatch,KQ,get_vec_dot_KQ,0,n/a,n/a,n/a,yes,45497c2d2b49c6e48722c2bdaf84ed7ed1c77a1bf75b264130f37c560670d415,KQ type dispatch
+dispatch,V,get_dequantize_V,0,n/a,n/a,n/a,yes,7b3a01f59c126e8f75380a00764e7c9a28d0b03b6fb894821b9c8b8ce4b49448,V type dispatch

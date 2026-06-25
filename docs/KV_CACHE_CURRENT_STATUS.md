@@ -36,11 +36,16 @@ float buffer before dot/value use, instead of repeating inverse OWHT for each
 scalar element. The heavier OWHT helpers live in CUDA `q2_0-owht.cuh` and are
 included only by `SET_ROWS` and the fused HP kernel; the default direct `q2_0`
 vector FA path continues to include the lightweight centroid helper only.
-This is deliberately not enabled by default yet:
-plain vector FA still needs a high-performance paired inverse-OWHT V path, and
-enabling OWHT writes without matching all readers would corrupt plain `q2_0`
-attention. The active default remains the previously benchmarked direct
-centroid path.
+This is deliberately not enabled by default yet. There are two distinct cases:
+with `LLAMA_KV_NO_HADAMARD=1`, the staged q2 writer stores the same direct
+`m + d * centroid(code)` values that the generic CUDA scalar reader consumes, so
+the direct scalar reader is compatible with the no-Hadamard staged layout. With
+Hadamard-applied OWHT writes, however, the generic vector FA kernels still do
+not yet apply inverse OWHT; plain vector FA needs a high-performance matching
+inverse-OWHT reader for both K and V before those writes can be enabled safely.
+Enabling those writes without matching all readers would corrupt plain `q2_0`
+attention. The active default remains the previously benchmarked direct centroid
+path.
 
 ## Memory And Speed Summary
 
@@ -145,12 +150,15 @@ saves only 14 MiB of incremental VRAM because the model/runtime footprint
 dominates. Use the existing 512/2048/4096 matrix or rerun the full matrix on an
 idle GPU for real memory conclusions.
 
-`bench_kv_cache_matrix.sh` now guards formal benchmark runs against a busy GPU.
-`run_kv_ppl_matrix.sh` uses the same guard when `MEASURE_VRAM=1`. By default
-these scripts refuse to start if the current `nvidia-smi` baseline exceeds
-`MAX_BASELINE_MIB=1024`. For quick smoke tests on a known-busy GPU, set
-`ALLOW_BUSY_GPU=1`; those runs should not be used as final VRAM evidence. For
-CPU-only or quality-only PPL checks, set `MEASURE_VRAM=0`.
+`bench_kv_cache_matrix.sh` and `run_kv_ppl_matrix.sh` now default to
+`DRY_RUN=1`, so they print commands before touching preflight, corpus checks, or
+the GPU. Real benchmark matrix runs require `DRY_RUN=0 ACK_MATRIX_BENCH=1`; real
+PPL matrix runs require `DRY_RUN=0 ACK_PPL_MATRIX=1`. When running for real, both
+scripts guard formal runs against a busy GPU. By default these scripts refuse to
+start if the current `nvidia-smi` baseline exceeds `MAX_BASELINE_MIB=1024`. For
+quick smoke tests on a known-busy GPU, set `ALLOW_BUSY_GPU=1`; those runs should
+not be used as final VRAM evidence. For CPU-only or quality-only PPL checks, set
+`MEASURE_VRAM=0`.
 
 When the guard refuses a run, it now prints the current GPU memory baseline and
 the raw `nvidia-smi --query-compute-apps=pid,process_name,used_memory` snapshot.
@@ -172,6 +180,7 @@ To run a formal matrix as soon as the GPU is idle, use:
 WAIT_FOR_IDLE_GPU=1 \
 GPU_IDLE_TIMEOUT_SEC=3600 \
 GPU_IDLE_POLL_SEC=10 \
+DRY_RUN=0 ACK_MATRIX_BENCH=1 \
 ./scripts/bench_kv_cache_matrix.sh
 ```
 
@@ -204,6 +213,7 @@ Use the matrix script for two models, short/medium/long prompts, multiple KV
 types, speed, and sampled VRAM:
 
 ```bash
+DRY_RUN=0 ACK_MATRIX_BENCH=1 \
 ./scripts/bench_kv_cache_matrix.sh
 ```
 
@@ -213,6 +223,7 @@ Useful overrides:
 LLAMA_BENCH=third_party/OSCAR/build-cuda/bin/llama-bench \
 LENGTHS=short:512,medium:2048,long:4096 \
 KV_MODES=f16,q8_0,q4_0,q2_0,q2_0_hp \
+DRY_RUN=0 ACK_MATRIX_BENCH=1 \
 ./scripts/bench_kv_cache_matrix.sh
 ```
 
@@ -221,6 +232,7 @@ cache choices, use `KV_PAIRS` with `K/V` entries:
 
 ```bash
 KV_PAIRS=f16/f16,q8_0/q2_0,q2_0/q8_0,q2_0/q2_0 \
+DRY_RUN=0 ACK_MATRIX_BENCH=1 \
 ./scripts/bench_kv_cache_matrix.sh
 ```
 
@@ -350,6 +362,7 @@ CORPUS=/path/to/wiki.test.raw \
 CHUNKS=8 \
 CONTEXTS=short:512,medium:2048,long:4096 \
 KV_MODES=f16,q8_0,q4_0,q2_0,q2_0_hp \
+DRY_RUN=0 ACK_PPL_MATRIX=1 \
 ./scripts/run_kv_ppl_matrix.sh
 ```
 
@@ -359,6 +372,7 @@ checks:
 ```bash
 CORPUS=/path/to/wiki.test.raw \
 KV_PAIRS=f16/f16,q8_0/q2_0,q2_0/q8_0,q2_0/q2_0 \
+DRY_RUN=0 ACK_PPL_MATRIX=1 \
 ./scripts/run_kv_ppl_matrix.sh
 ```
 
@@ -406,6 +420,7 @@ KV_PAIRS=f16/f16,q8_0/q2_0 \
 CHUNKS=1 \
 N_GPU_LAYERS=0 \
 MEASURE_VRAM=0 \
+DRY_RUN=0 ACK_PPL_MATRIX=1 \
 ./scripts/run_kv_ppl_matrix.sh
 ```
 
@@ -433,17 +448,18 @@ The PPL gate catches the smoke ablation as a regression under a strict threshold
 
 - CUDA `q2_0` `SET_ROWS` currently mirrors centroid packing but does not
   use the full CPU-side head-level OWHT transform by default. OWHT-aware CUDA
-  helper code is staged behind `LLAMA_KV_Q2_0_OWHT=1`, but changing only the
-  writer would break plain CUDA attention, because the vector FA kernels
-  currently dequantize `q2_0` values directly through `q2_0.cuh`. The correct
-  next step is a paired high-performance change: 128-dim group quantization in
-  `SET_ROWS` plus matching inverse-OWHT reconstruction for both K and V inside
-  CUDA vector attention. A naive attempt to add a second OWHT-enabled template
-  branch inside the generic vector FA path made the `q2_0` vector instance too
-  heavy to build reliably in this environment, so the next implementation should
-  be a dedicated q2_0 OWHT vector kernel that decodes each K/V row or group once
-  into shared/register storage instead of scalar-reconstructing the Hadamard
-  group for every accessed element.
+  helper code is staged behind `LLAMA_KV_Q2_0_OWHT=1`. Under
+  `LLAMA_KV_NO_HADAMARD=1`, the staged writer remains compatible with the
+  generic direct scalar reader, so the remaining OSCAR INT2 quality drift should
+  be treated as a quantization/attention-accuracy issue rather than a known
+  q2 reader mismatch. Hadamard-applied OWHT writes are different: they still
+  require a matching inverse-OWHT reader for both K and V inside CUDA vector
+  attention. A naive attempt to add a second OWHT-enabled template branch inside
+  the generic vector FA path made the `q2_0` vector instance too heavy to build
+  reliably in this environment, so the next implementation should be a dedicated
+  q2_0 OWHT vector kernel that decodes each K/V row or group once into
+  shared/register storage instead of scalar-reconstructing the Hadamard group for
+  every accessed element.
 - Metal centroid reconstruction is now aligned with CPU/CUDA, but Metal still
   does not implement the CPU q2_0 inverse OWHT path in these FA helpers.
 - The fused `q2_0` + F16 HP CUDA kernel is scalar and simple. It validates the
