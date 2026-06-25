@@ -32,6 +32,7 @@ results/
 rotation/**/eval_*/
 rotation/**/accuracy_fill/
 rotation/**/accuracy_suite_*/
+rotation/**/rotations/
 rotation/**/LCB_V6/
 third_party/LiveCodeBench/
 **/lcb_output/
