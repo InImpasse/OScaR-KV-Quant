@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run llama.cpp/llama-server accuracy suite for BF16, OSCAR INT2, and plain INT2.
+# Run llama.cpp/llama-server accuracy suite for BF16 and INT4 delivery variants.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -11,7 +11,7 @@ OUT_DIR="${OUT_DIR:-$RUNS_DIR/llamacpp_accuracy_suite_$STAMP}"
 
 BASE_MODEL="${BASE_MODEL:-$ROOT_DIR/checkpoints/gguf/granite-4.0-1b-base-bf16.gguf}"
 OSCAR_MODEL="${OSCAR_MODEL:-$ROOT_DIR/checkpoints/gguf/granite-4.0-1b-base-bf16-rot-kv.gguf}"
-VARIANTS="${VARIANTS:-baseline_bf16,oscar_int2,plain_int2}"
+VARIANTS="${VARIANTS:-baseline_bf16,oscar_int4,plain_int4}"
 DATASETS="${DATASETS:-gpqa,gsm8k,math500,humaneval,aime2025}"
 CTX_SIZE="${CTX_SIZE:-4096}"
 N_GPU_LAYERS="${N_GPU_LAYERS:-999}"
@@ -43,7 +43,7 @@ Usage: scripts/run_llamacpp_accuracy_suite.sh [env overrides]
 
 Environment:
   OUT_DIR=DIR
-  VARIANTS=baseline_bf16,oscar_int2,plain_int2
+  VARIANTS=baseline_bf16,oscar_int4,plain_int4
   DATASETS=gpqa,gsm8k,math500,humaneval,aime2025
   *_N_CASES and *_N_PREDICT override per-dataset sizes.
   DRY_RUN=0 ACK_EVAL=1 executes.
@@ -225,6 +225,8 @@ run_variant() {
 }
 
 enabled "$VARIANTS" baseline_bf16 && run_variant baseline_bf16 "$BASE_MODEL" bf16 bf16 0 0
+enabled "$VARIANTS" oscar_int4 && run_variant oscar_int4 "$OSCAR_MODEL" q4_0 q4_0 1 0.96
+enabled "$VARIANTS" plain_int4 && run_variant plain_int4 "$BASE_MODEL" q4_0 q4_0 0 0
 enabled "$VARIANTS" oscar_int2 && run_variant oscar_int2 "$OSCAR_MODEL" q2_0 q2_0 1 0
 enabled "$VARIANTS" plain_int2 && run_variant plain_int2 "$BASE_MODEL" q2_0 q2_0 0 0
 

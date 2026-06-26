@@ -7,9 +7,10 @@ BUILD_DIR="${BUILD_DIR:-$OSCAR_DIR/build-cuda}"
 LLAMACPP_CMAKE_ARGS="${LLAMACPP_CMAKE_ARGS:--DLLAMA_CURL=OFF -DGGML_CUDA=ON}"
 
 cmake -S "$OSCAR_DIR" -B "$BUILD_DIR" $LLAMACPP_CMAKE_ARGS
-cmake --build "$BUILD_DIR" -j "${JOBS:-$(nproc)}" --target llama-cli llama-bench
+cmake --build "$BUILD_DIR" -j "${JOBS:-$(nproc)}" --target llama-cli llama-bench llama-server
 
 echo
 echo "Built:"
 echo "  $BUILD_DIR/bin/llama-cli"
 echo "  $BUILD_DIR/bin/llama-bench"
+echo "  $BUILD_DIR/bin/llama-server"

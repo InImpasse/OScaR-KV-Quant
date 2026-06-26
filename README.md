@@ -71,6 +71,11 @@ Initialize and build the llama.cpp fork:
 ```bash
 git submodule update --init --recursive
 
+cmake -S third_party/OSCAR -B third_party/OSCAR/build-cuda \
+  -DLLAMA_CURL=OFF \
+  -DGGML_CUDA=ON \
+  -DGGML_CUDA_GRAPHS=ON
+
 cmake --build third_party/OSCAR/build-cuda -j 4 --target llama-bench llama-server
 ```
 
@@ -83,7 +88,7 @@ third_party/OSCAR/build-cuda/bin/llama-bench --list-devices
 Run a dry-run matrix first:
 
 ```bash
-PRESETS=short MODES=bf16,oscar-int2,int2 \
+PRESETS=short MODES=bf16,oscar-int4,int4 \
   scripts/bench_llamacpp_matrix.sh
 ```
 
@@ -92,7 +97,7 @@ Run a real short/medium/long matrix:
 ```bash
 OUT_ROOT=runs/llamacpp_bench_matrix_$(date +%Y%m%d_%H%M%S) \
 PRESETS=short,medium,long \
-MODES=bf16,oscar-int2,int2 \
+MODES=bf16,oscar-int4,int4 \
 DRY_RUN=0 \
 CASE_TIMEOUT_SEC=300 \
   scripts/bench_llamacpp_matrix.sh
@@ -102,7 +107,7 @@ CASE_TIMEOUT_SEC=300 \
 
 | Path | Purpose |
 |---|---|
-| `third_party/OSCAR/` | llama.cpp fork with OSCAR/Q2/OSCAR2/INT4 KV work |
+| `third_party/OSCAR/` | llama.cpp fork with OSCAR INT4 delivery path and INT2 research history |
 | `scripts/bench_32k_llamacpp_kv.sh` | low-level guarded llama-bench runner |
 | `scripts/bench_llamacpp_matrix.sh` | SGLang-style preset matrix for llama.cpp |
 | `scripts/cuda_graph_compare_llamacpp_matrix.sh` | graph off/on preset matrix |
@@ -149,7 +154,7 @@ Run the graph comparison:
 ```bash
 OUT_ROOT=runs/llamacpp_cuda_graph_compare_matrix_$(date +%Y%m%d_%H%M%S) \
 PRESETS=short,medium,long \
-MODES=bf16,oscar-int2,int2 \
+MODES=bf16,oscar-int4,int4 \
 RUN_REAL=1 \
 CASE_TIMEOUT_SEC=300 \
   scripts/cuda_graph_compare_llamacpp_matrix.sh
@@ -189,15 +194,15 @@ python3 scripts/summarize_llamacpp_matrix.py runs/<matrix_dir> \
 ```csv
 preset,mode,decode_first_tok_s,decode_steady_p95_tok_s
 short,bf16,,
-short,oscar-int2,,
-short,int2,,
+short,oscar-int4,,
+short,int4,,
 ```
 
 ## Accuracy
 
-The llama.cpp accuracy wrappers use `llama-server` and the same variant set:
-BF16, OSCAR INT2, and plain INT2. They are intended to reproduce the same
-benchmark family as the SGLang harness while keeping the backend in llama.cpp.
+The llama.cpp accuracy wrappers use `llama-server` and the same delivery variant
+set by default: BF16, OSCAR INT4, and plain INT4. INT2 variants remain available
+for research comparisons, but they are not the current delivery target.
 
 Supported tasks:
 
@@ -214,7 +219,7 @@ Smoke run:
 
 ```bash
 OUT_DIR=runs/llamacpp_accuracy_smoke_$(date +%Y%m%d_%H%M%S) \
-VARIANTS=baseline_bf16,oscar_int2,plain_int2 \
+VARIANTS=baseline_bf16,oscar_int4,plain_int4 \
 DATASETS=gpqa,gsm8k,math500,aime2025 \
 GPQA_N_CASES=10 \
 GSM8K_N_CASES=10 \
@@ -229,7 +234,7 @@ Full non-LCB suite:
 
 ```bash
 OUT_DIR=runs/llamacpp_accuracy_full_$(date +%Y%m%d_%H%M%S) \
-VARIANTS=baseline_bf16,oscar_int2,plain_int2 \
+VARIANTS=baseline_bf16,oscar_int4,plain_int4 \
 DATASETS=gpqa,gsm8k,math500,humaneval,aime2025 \
 GPQA_N_CASES=198 \
 GSM8K_N_CASES=200 \
