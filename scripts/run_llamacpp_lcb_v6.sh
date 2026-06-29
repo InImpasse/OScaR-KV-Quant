@@ -150,19 +150,10 @@ PY
 }
 
 LCB_MODEL_REGISTRY_EFFECTIVE="$LCB_MODEL_NAME"
-LCB_ALIAS_DIR=""
 if [[ "$DRY_RUN" != "1" ]]; then
   LCB_MODEL_REGISTRY_EFFECTIVE="$(resolve_lcb_model_registry_key)"
   if [[ "$LCB_MODEL_REGISTRY_EFFECTIVE" != "$LCB_MODEL_NAME" ]]; then
-    LCB_ALIAS_DIR="$OUT_DIR/lcb_model_alias"
-    mkdir -p "$LCB_ALIAS_DIR"
-    cat > "$LCB_ALIAS_DIR/sitecustomize.py" <<PY
-from lcb_runner.lm_styles import LanguageModelStore
-
-if "$LCB_MODEL_NAME" not in LanguageModelStore:
-    LanguageModelStore["$LCB_MODEL_NAME"] = LanguageModelStore["$LCB_MODEL_REGISTRY_EFFECTIVE"]
-PY
-    echo "LCB model alias: $LCB_MODEL_NAME -> $LCB_MODEL_REGISTRY_EFFECTIVE"
+    echo "LCB model adapter: $LCB_MODEL_NAME -> $LCB_MODEL_REGISTRY_EFFECTIVE"
   fi
 fi
 
@@ -269,7 +260,7 @@ run_variant() {
   )
   local lcb_cmd=(
     "$PY" -m lcb_runner.runner.main
-      --model "$LCB_MODEL_NAME"
+      --model "$LCB_MODEL_REGISTRY_EFFECTIVE"
       --scenario codegeneration
       --release_version "$LCB_RELEASE"
       --evaluate
@@ -305,11 +296,7 @@ run_variant() {
     export OPENAI_KEY="${OPENAI_KEY:-EMPTY}"
     export OPENAI_BASE_URL="http://127.0.0.1:${port}/v1"
     export LCB_USE_COMPLETIONS="${LCB_USE_COMPLETIONS:-1}"
-    if [[ -n "$LCB_ALIAS_DIR" ]]; then
-      export PYTHONPATH="$LCB_ALIAS_DIR:$LCB_ROOT:${PYTHONPATH:-}"
-    else
-      export PYTHONPATH="$LCB_ROOT:${PYTHONPATH:-}"
-    fi
+    export PYTHONPATH="$LCB_ROOT:${PYTHONPATH:-}"
     "${lcb_cmd[@]}"
   ) 2>&1 | tee "$OUT_DIR/logs/${label}.lcb.log"
 
