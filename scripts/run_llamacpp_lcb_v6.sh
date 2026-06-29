@@ -10,7 +10,7 @@ OUT_DIR="${OUT_DIR:-$RUNS_DIR/llamacpp_lcb_v6_$STAMP}"
 
 BASE_MODEL="${BASE_MODEL:-$ROOT_DIR/checkpoints/gguf/granite-4.0-1b-base-bf16.gguf}"
 OSCAR_MODEL="${OSCAR_MODEL:-$ROOT_DIR/checkpoints/gguf/granite-4.0-1b-base-bf16-rot-kv.gguf}"
-VARIANTS="${VARIANTS:-baseline_bf16,oscar_int2,plain_int2}"
+VARIANTS="${VARIANTS:-baseline_bf16,oscar_int4,plain_int4}"
 LCB_ROOT="${LIVE_CODE_BENCH_ROOT:-$ROOT_DIR/third_party/LiveCodeBench}"
 PY="${PY:-python3}"
 GPU="${GPU:-0}"
@@ -48,7 +48,7 @@ Required for real execution:
   DRY_RUN=0 ACK_EVAL=1 ALLOW_CODE_EXEC=1
 
 Useful env:
-  VARIANTS=baseline_bf16,oscar_int2,plain_int2
+  VARIANTS=baseline_bf16,oscar_int4,plain_int4
   LIVE_CODE_BENCH_ROOT=third_party/LiveCodeBench
   LCB_RELEASE=release_v6
   LCB_N=1
@@ -136,7 +136,8 @@ run_variant() {
   local cache_k="$3"
   local cache_v="$4"
   local no_hadamard="$5"
-  local port="$6"
+  local clip_ratio="$6"
+  local port="$7"
   local q2_owht="0"
   if [[ "$cache_k/$cache_v" == "q2_0/q2_0" && "$no_hadamard" == "1" ]]; then
     q2_owht="1"
@@ -156,9 +157,9 @@ run_variant() {
       LLAMA_KV_HP_RECENT=0
       LLAMA_KV_Q2_0_OWHT="$q2_owht"
       LLAMA_KV_NO_HADAMARD="$no_hadamard"
-      LLAMA_KV_CLIP_RATIO=0
-      LLAMA_KV_CLIP_RATIO_K=0
-      LLAMA_KV_CLIP_RATIO_V=0
+      LLAMA_KV_CLIP_RATIO="$clip_ratio"
+      LLAMA_KV_CLIP_RATIO_K="$clip_ratio"
+      LLAMA_KV_CLIP_RATIO_V="$clip_ratio"
     "$LLAMA_SERVER"
       -m "$model"
       -c "$CTX_SIZE"
@@ -229,15 +230,23 @@ run_variant() {
 
 i=0
 if enabled baseline_bf16; then
-  run_variant baseline_bf16 "$BASE_MODEL" bf16 bf16 0 "$((PORT_BASE + i))"
+  run_variant baseline_bf16 "$BASE_MODEL" bf16 bf16 0 0 "$((PORT_BASE + i))"
+  i=$((i + 1))
+fi
+if enabled oscar_int4; then
+  run_variant oscar_int4 "$OSCAR_MODEL" q4_0 q4_0 1 0.96 "$((PORT_BASE + i))"
+  i=$((i + 1))
+fi
+if enabled plain_int4; then
+  run_variant plain_int4 "$BASE_MODEL" q4_0 q4_0 0 0 "$((PORT_BASE + i))"
   i=$((i + 1))
 fi
 if enabled oscar_int2; then
-  run_variant oscar_int2 "$OSCAR_MODEL" q2_0 q2_0 1 "$((PORT_BASE + i))"
+  run_variant oscar_int2 "$OSCAR_MODEL" q2_0 q2_0 1 0 "$((PORT_BASE + i))"
   i=$((i + 1))
 fi
 if enabled plain_int2; then
-  run_variant plain_int2 "$BASE_MODEL" q2_0 q2_0 0 "$((PORT_BASE + i))"
+  run_variant plain_int2 "$BASE_MODEL" q2_0 q2_0 0 0 "$((PORT_BASE + i))"
 fi
 
 if [[ "$DRY_RUN" == "1" ]]; then
