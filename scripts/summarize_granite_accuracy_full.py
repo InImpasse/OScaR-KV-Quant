@@ -6,11 +6,11 @@ import sys
 from pathlib import Path
 
 
-VARIANTS = ("baseline_bf16", "oscar_int2", "plain_int2")
+VARIANTS = ("baseline_bf16", "oscar_int4", "plain_int4")
 VARIANT_LABEL = {
     "baseline_bf16": "BF16",
-    "oscar_int2": "OSCAR INT2",
-    "plain_int2": "Plain INT2",
+    "oscar_int4": "OSCAR INT4",
+    "plain_int4": "Plain INT4",
 }
 DATASET_LABEL = {
     "gpqa": ("GPQA", "Score"),
@@ -123,7 +123,7 @@ def main():
     scores.update(load_humaneval_passk(run_dir))
 
     lines = [
-        "| Benchmark | Metric | BF16 | OSCAR INT2 | Delta vs BF16 | Plain INT2 | Delta vs BF16 |",
+        "| Benchmark | Metric | BF16 | OSCAR INT4 | Delta vs BF16 | Plain INT4 | Delta vs BF16 |",
         "|---|---|---:|---:|---:|---:|---:|",
     ]
     ordered = (
@@ -138,8 +138,8 @@ def main():
     )
     for dataset, label, metric in ordered:
         bf16 = scores.get(("baseline_bf16", dataset))
-        oscar = scores.get(("oscar_int2", dataset))
-        plain = scores.get(("plain_int2", dataset))
+        oscar = scores.get(("oscar_int4", dataset))
+        plain = scores.get(("plain_int4", dataset))
         lines.append(
             f"| {label} | {metric} | {fmt_score(bf16)} | {fmt_score(oscar)} | "
             f"{fmt_delta(oscar, bf16)} | {fmt_score(plain)} | {fmt_delta(plain, bf16)} |"

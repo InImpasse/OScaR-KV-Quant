@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full Granite 4.0 1B accuracy harness for BF16, OSCAR INT2, and plain INT2.
+# Full Granite 4.0 1B accuracy harness for BF16, OSCAR INT4, and plain INT4.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -13,7 +13,7 @@ BASE_MODEL="${BASE_MODEL:-$ROOT_DIR/checkpoints/gguf/granite-4.0-1b-base-bf16.gg
 OSCAR_MODEL="${OSCAR_MODEL:-$ROOT_DIR/checkpoints/gguf/granite-4.0-1b-base-bf16-rot-kv.gguf}"
 LCB_ROOT="${LIVE_CODE_BENCH_ROOT:-$ROOT_DIR/third_party/LiveCodeBench}"
 
-VARIANTS="${VARIANTS:-baseline_bf16,oscar_int2,plain_int2}"
+VARIANTS="${VARIANTS:-baseline_bf16,oscar_int4,plain_int4}"
 NON_LCB_DATASETS="${NON_LCB_DATASETS:-gpqa,gsm8k,math500,humaneval,aime2025}"
 RUN_LCB="${RUN_LCB:-1}"
 
@@ -34,7 +34,7 @@ GSM8K_N_CASES="${GSM8K_N_CASES:-200}"
 MATH500_N_CASES="${MATH500_N_CASES:-500}"
 HUMANEVAL_N_CASES="${HUMANEVAL_N_CASES:-164}"
 HUMANEVAL_SAMPLES="${HUMANEVAL_SAMPLES:-5}"
-AIME25_N_CASES="${AIME25_N_CASES:-60}"
+AIME25_N_CASES="${AIME25_N_CASES:-30}"
 
 DRY_RUN="${DRY_RUN:-1}"
 ACK_EVAL="${ACK_EVAL:-0}"
@@ -50,7 +50,7 @@ usage() {
 Usage: scripts/run_granite_accuracy_full.sh [env overrides]
 
 Default plan:
-  Variants: baseline_bf16, oscar_int2, plain_int2
+  Variants: baseline_bf16, oscar_int4, plain_int4
   Tasks: GPQA, GSM8K, MATH-500, HumanEval, AIME25, LiveCodeBench v6
 
 Real run:
@@ -63,7 +63,7 @@ Resume:
 
 Useful overrides:
   OUT_DIR=...
-  VARIANTS=baseline_bf16,oscar_int2,plain_int2
+  VARIANTS=baseline_bf16,oscar_int4,plain_int4
   RUN_LCB=0
   THREADS=64
   HUMANEVAL_SAMPLES=5

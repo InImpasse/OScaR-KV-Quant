@@ -365,7 +365,7 @@ GPQA_N_CASES=198 \
 GSM8K_N_CASES=200 \
 MATH500_N_CASES=500 \
 HUMANEVAL_N_CASES=164 \
-AIME25_N_CASES=60 \
+AIME25_N_CASES=30 \
 DRY_RUN=0 \
 ACK_EVAL=1 \
 ALLOW_HUMANEVAL_EXEC=1 \
@@ -386,7 +386,7 @@ LiveCodeBench v6:
 
 ```bash
 OUT_DIR=runs/llamacpp_lcb_v6_$(date +%Y%m%d_%H%M%S) \
-VARIANTS=baseline_bf16,oscar_int2,plain_int2 \
+VARIANTS=baseline_bf16,oscar_int4,plain_int4 \
 LIVE_CODE_BENCH_ROOT=third_party/LiveCodeBench \
 LCB_RELEASE=release_v6 \
 LCB_N=1 \
@@ -403,7 +403,7 @@ runs/<lcb_dir>/logs/
 runs/<lcb_dir>/raw/<variant>/lcb_output/
 ```
 
-Full Granite INT2 accuracy comparison:
+Full Granite INT4 accuracy comparison:
 
 ```bash
 OUT_DIR=/tmp/granite_accuracy_plan \
@@ -423,7 +423,7 @@ ALLOW_CODE_EXEC=1 \
 ```
 
 This wrapper checks models, binaries, Python dependencies, GPU/RAM/CPU capacity,
-and dataset availability before running BF16, OSCAR INT2, and plain INT2 on
+and dataset availability before running BF16, OSCAR INT4, and plain INT4 on
 GPQA, GSM8K, MATH-500, HumanEval, AIME25, and LiveCodeBench v6. Re-run the same
 `OUT_DIR=...` command to resume; completed JSON files and LCB variant markers are
 skipped by default.
