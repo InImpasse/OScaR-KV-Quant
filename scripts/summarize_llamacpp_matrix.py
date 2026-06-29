@@ -123,8 +123,7 @@ def _fmt_num(value: float | None, nd: int) -> str:
         return ""
     if nd == 0:
         return str(int(round(value)))
-    text = f"{value:.{nd}f}"
-    return text.rstrip("0").rstrip(".")
+    return f"{value:.{nd}f}"
 
 
 def _pct(cur: float | None, base: float | None) -> str:

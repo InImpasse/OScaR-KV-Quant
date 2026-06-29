@@ -111,6 +111,7 @@ CASE_TIMEOUT_SEC=300 \
 | `scripts/bench_32k_llamacpp_kv.sh` | low-level guarded llama-bench runner |
 | `scripts/bench_llamacpp_matrix.sh` | SGLang-style preset matrix for llama.cpp |
 | `scripts/cuda_graph_compare_llamacpp_matrix.sh` | graph off/on preset matrix |
+| `scripts/run_llamacpp_latency_matrix.sh` | llama-server streaming first-token/P95 latency matrix |
 | `scripts/run_llamacpp_accuracy_suite.sh` | GPQA/GSM8K/MATH500/HumanEval/AIME25 through llama-server |
 | `scripts/run_llamacpp_lcb_v6.sh` | LiveCodeBench v6 through llama-server |
 | `runs/*_current/` | selected archived validation outputs |
@@ -131,23 +132,147 @@ weights remain BF16.
 
 ## Speed and memory
 
-Archived 32K llama.cpp matrix:
+Current-device llama.cpp INT2 matrix:
 
 ```bash
-runs/llamacpp_32k_kv_matrix_current/combined.md
-runs/llamacpp_32k_kv_matrix_current/combined.csv
+runs/llamacpp_cuda_graph_compare_matrix_current_device_20260626_102435/on/matrix.md
+runs/llamacpp_cuda_graph_compare_matrix_current_device_20260626_102435/off/matrix.md
+runs/llamacpp_cuda_graph_compare_matrix_current_device_20260626_102435/on/bench_compatible.csv
+runs/llamacpp_cuda_graph_compare_matrix_current_device_20260626_102435/off/bench_compatible.csv
 ```
 
-Summary from the archived run:
+Measurement notes:
 
-| variant | prompt | status | KV | KV pool MiB | peak MiB | pp tok/s | tg tok/s |
-|---|---:|---|---|---:|---:|---:|---:|
-| `baseline_bf16` | 32768 | ok | `bf16/bf16` | 2560.0 | 6160 | 2486.4 | 41.6 |
-| `oscar_int4` | 32768 | ok | `q4_0/q4_0` | 720.0 | 4324 | 2533.8 | 39.2 |
-| `plain_int4` | 32768 | ok | `q4_0/q4_0` | 720.0 | 4324 | 2265.0 | 41.0 |
-| `plain_int2` | 16384 | ok | `q2_0/q2_0` | 240.0 | 3792 | 180.0 | 44.1 |
-| `oscar_int2` | 16384 | ok | `q2_0/q2_0` | 240.0 | 3796 | 183.7 | 28.0 |
-| `oscar_int2` | 32768 | failed | `q2_0/q2_0` | 480.0 | 4036 | | |
+- Hardware: local RTX 5050 8GB class device.
+- Variants: `baseline_bf16`, `oscar_int2`, and `plain_int2`.
+- `Prefill`, `Steady`, `Peak`, and `KV pool` come from `llama-bench`.
+- `Decode first` and `P95` come from `llama-server` streaming with 64 generated
+  tokens and are overlaid into the same table shape.
+- 32K INT2 cases are guarded and were run one variant at a time.
+
+### CUDA graph on
+
+#### Decode first (tok/s, higher better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 2.67 | 1.94 | -27% | 1.67 | -37% |
+| 2K | 2.37 | 0.50 | -79% | 0.44 | -81% |
+| 8K | 0.52 | 0.04 | -91% | 0.04 | -92% |
+| 16K | 0.21 | 0.01 | -94% | 0.01 | -94% |
+| 32K | 0.08 | 0.00 | -96% | 0.00 | -96% |
+
+#### Steady (tok/s, higher better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 57.41 | 58.90 | +3% | 62.78 | +9% |
+| 2K | 78.36 | 63.56 | -19% | 61.97 | -21% |
+| 8K | 69.31 | 51.06 | -26% | 53.75 | -22% |
+| 16K | 62.30 | 43.37 | -30% | 50.69 | -19% |
+| 32K | 60.95 | 51.41 | -16% | 58.11 | -5% |
+
+#### Peak (MiB, lower better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 3476 | 3442 | -1% (-34 MiB) | 3448 | -1% (-28 MiB) |
+| 2K | 3596 | 3464 | -4% (-132 MiB) | 3470 | -4% (-126 MiB) |
+| 8K | 4074 | 3550 | -13% (-524 MiB) | 3550 | -13% (-524 MiB) |
+| 16K | 4758 | 3670 | -23% (-1088 MiB) | 3670 | -23% (-1088 MiB) |
+| 32K | 6042 | 3910 | -35% (-2132 MiB) | 3910 | -35% (-2132 MiB) |
+
+#### KV pool K+V (MiB, measured/estimated, lower better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 40 | 8 | -81% (-32 MiB) | 8 | -81% (-32 MiB) |
+| 2K | 160 | 30 | -81% (-130 MiB) | 30 | -81% (-130 MiB) |
+| 8K | 640 | 120 | -81% (-520 MiB) | 120 | -81% (-520 MiB) |
+| 16K | 1280 | 240 | -81% (-1040 MiB) | 240 | -81% (-1040 MiB) |
+| 32K | 2560 | 480 | -81% (-2080 MiB) | 480 | -81% (-2080 MiB) |
+
+#### Prefill (tok/s, higher better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 4834 | 2083 | -57% | 2136 | -56% |
+| 2K | 5322 | 1067 | -80% | 1092 | -79% |
+| 8K | 4299 | 327 | -92% | 330 | -92% |
+| 16K | 3579 | 177 | -95% | 180 | -95% |
+| 32K | 2543 | 92 | -96% | 93 | -96% |
+
+#### P95 (tok/s, higher better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 38.78 | 38.59 | -0% | 34.90 | -10% |
+| 2K | 43.52 | 34.31 | -21% | 26.92 | -38% |
+| 8K | 50.52 | 23.59 | -53% | 24.45 | -52% |
+| 16K | 50.36 | 15.38 | -69% | 15.71 | -69% |
+| 32K | 40.75 | 8.54 | -79% | 10.00 | -75% |
+
+### CUDA graph off
+
+#### Decode first (tok/s, higher better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 0.81 | 2.18 | +169% | 1.67 | +107% |
+| 2K | 2.11 | 0.50 | -76% | 0.52 | -75% |
+| 8K | 0.51 | 0.05 | -91% | 0.04 | -91% |
+| 16K | 0.21 | 0.01 | -94% | 0.01 | -94% |
+| 32K | 0.08 | 0.00 | -96% | 0.00 | -96% |
+
+#### Steady (tok/s, higher better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 56.30 | 55.11 | -2% | 53.20 | -6% |
+| 2K | 67.34 | 62.71 | -7% | 60.89 | -10% |
+| 8K | 69.14 | 54.29 | -21% | 53.83 | -22% |
+| 16K | 62.05 | 51.61 | -17% | 52.48 | -15% |
+| 32K | 61.90 | 52.88 | -15% | 51.10 | -17% |
+
+#### Peak (MiB, lower better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 3476 | 3442 | -1% (-34 MiB) | 3448 | -1% (-28 MiB) |
+| 2K | 3596 | 3464 | -4% (-132 MiB) | 3470 | -4% (-126 MiB) |
+| 8K | 4074 | 3550 | -13% (-524 MiB) | 3550 | -13% (-524 MiB) |
+| 16K | 4758 | 3670 | -23% (-1088 MiB) | 3670 | -23% (-1088 MiB) |
+| 32K | 6042 | 3910 | -35% (-2132 MiB) | 3910 | -35% (-2132 MiB) |
+
+#### KV pool K+V (MiB, measured/estimated, lower better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 40 | 8 | -81% (-32 MiB) | 8 | -81% (-32 MiB) |
+| 2K | 160 | 30 | -81% (-130 MiB) | 30 | -81% (-130 MiB) |
+| 8K | 640 | 120 | -81% (-520 MiB) | 120 | -81% (-520 MiB) |
+| 16K | 1280 | 240 | -81% (-1040 MiB) | 240 | -81% (-1040 MiB) |
+| 32K | 2560 | 480 | -81% (-2080 MiB) | 480 | -81% (-2080 MiB) |
+
+#### Prefill (tok/s, higher better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 5273 | 2058 | -61% | 2138 | -59% |
+| 2K | 5252 | 1095 | -79% | 1113 | -79% |
+| 8K | 4430 | 375 | -92% | 327 | -93% |
+| 16K | 3650 | 185 | -95% | 185 | -95% |
+| 32K | 2022 | 93 | -95% | 93 | -95% |
+
+#### P95 (tok/s, higher better)
+
+| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 512 | 38.64 | 38.09 | -1% | 39.14 | +1% |
+| 2K | 46.89 | 33.25 | -29% | 35.89 | -23% |
+| 8K | 56.77 | 24.47 | -57% | 21.72 | -62% |
+| 16K | 49.34 | 14.68 | -70% | 14.29 | -71% |
+| 32K | 40.94 | 10.06 | -75% | 10.01 | -76% |
 
 Run the graph comparison:
 
@@ -281,6 +406,14 @@ runs/<lcb_dir>/raw/<variant>/lcb_output/
 Full Granite INT2 accuracy comparison:
 
 ```bash
+OUT_DIR=/tmp/granite_accuracy_plan \
+DRY_RUN=1 \
+  scripts/run_granite_accuracy_full.sh
+```
+
+Real full run:
+
+```bash
 OUT_DIR=runs/granite_accuracy_full_$(date +%Y%m%d_%H%M%S) \
 DRY_RUN=0 \
 ACK_EVAL=1 \
@@ -294,6 +427,45 @@ and dataset availability before running BF16, OSCAR INT2, and plain INT2 on
 GPQA, GSM8K, MATH-500, HumanEval, AIME25, and LiveCodeBench v6. Re-run the same
 `OUT_DIR=...` command to resume; completed JSON files and LCB variant markers are
 skipped by default.
+
+Useful accuracy overrides:
+
+```bash
+# Resume an interrupted run.
+OUT_DIR=runs/granite_accuracy_full_YYYYmmdd_HHMMSS \
+DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 ALLOW_CODE_EXEC=1 \
+  scripts/run_granite_accuracy_full.sh
+
+# Small smoke run before the full suite.
+OUT_DIR=runs/granite_accuracy_smoke_$(date +%Y%m%d_%H%M%S) \
+GPQA_N_CASES=10 GSM8K_N_CASES=10 MATH500_N_CASES=10 AIME25_N_CASES=10 \
+HUMANEVAL_N_CASES=20 HUMANEVAL_SAMPLES=1 RUN_LCB=0 \
+DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 \
+  scripts/run_granite_accuracy_full.sh
+
+# Skip dataset preflight if datasets are already cached or the machine is offline.
+CHECK_DATASETS=0 DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 ALLOW_CODE_EXEC=1 \
+  scripts/run_granite_accuracy_full.sh
+```
+
+Common knobs:
+
+| Env | Default | Purpose |
+|---|---:|---|
+| `THREADS` | `nproc` | evaluator request workers; use up to 64 on the target machine |
+| `SERVER_PARALLEL` | `1` | llama-server parallel slots; keep low for one 40GB GPU |
+| `RUN_LCB` | `1` | set `0` to skip LiveCodeBench v6 |
+| `RESUME` / `SKIP_COMPLETED` | `1` / `1` | continue partial JSONs and skip completed variants |
+| `HUMANEVAL_SAMPLES` | `5` | repeated HumanEval samples used for Pass@1/2/5 |
+| `LIVE_CODE_BENCH_ROOT` | `third_party/LiveCodeBench` | LiveCodeBench checkout path |
+
+The final combined table is written to:
+
+```bash
+runs/<granite_accuracy_dir>/accuracy_comparison.md
+runs/<granite_accuracy_dir>/non_lcb/summary.csv
+runs/<granite_accuracy_dir>/lcb_v6/raw/<variant>/lcb_output/
+```
 
 ## Verification
 
@@ -311,8 +483,8 @@ Useful lightweight checks:
 
 ```bash
 python3 scripts/check_execution_entrypoints.py
-bash -n scripts/bench_32k_llamacpp_kv.sh scripts/run_llamacpp_accuracy_suite.sh
-python3 -m py_compile scripts/summarize_llamacpp_matrix.py scripts/summarize_llamacpp_accuracy_suite.py
+bash -n scripts/bench_32k_llamacpp_kv.sh scripts/run_llamacpp_accuracy_suite.sh scripts/run_granite_accuracy_full.sh
+python3 -m py_compile scripts/summarize_llamacpp_matrix.py scripts/summarize_llamacpp_accuracy_suite.py scripts/summarize_granite_accuracy_full.py
 ```
 
 ## Limitations
