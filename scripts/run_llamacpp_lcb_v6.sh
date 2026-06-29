@@ -20,6 +20,7 @@ N_GPU_LAYERS="${N_GPU_LAYERS:-999}"
 FLASH_ATTN="${FLASH_ATTN:-on}"
 SERVER_TIMEOUT_SEC="${SERVER_TIMEOUT_SEC:-180}"
 POST_READY_SLEEP="${POST_READY_SLEEP:-3}"
+SERVER_PARALLEL="${SERVER_PARALLEL:-1}"
 
 LCB_MODEL_NAME="${LCB_MODEL_NAME:-granite-4.0-1b-base}"
 LCB_RELEASE="${LCB_RELEASE:-release_v6}"
@@ -35,6 +36,7 @@ LCB_EXTRA_ARGS=(${LCB_EXTRA_ARGS:-})
 DRY_RUN="${DRY_RUN:-1}"
 ACK_EVAL="${ACK_EVAL:-0}"
 ALLOW_CODE_EXEC="${ALLOW_CODE_EXEC:-0}"
+SKIP_COMPLETED="${SKIP_COMPLETED:-1}"
 
 usage() {
   cat <<'EOF'
@@ -50,6 +52,7 @@ Useful env:
   LIVE_CODE_BENCH_ROOT=third_party/LiveCodeBench
   LCB_RELEASE=release_v6
   LCB_N=1
+  SKIP_COMPLETED=1 skips variants with .done marker files.
   OUT_DIR=runs/...
 EOF
 }
@@ -86,6 +89,7 @@ lcb_top_p=$LCB_TOP_P
 lcb_max_tokens=$LCB_MAX_TOKENS
 ctx_size=$CTX_SIZE
 dry_run=$DRY_RUN
+skip_completed=$SKIP_COMPLETED
 EOF
 
 server_pid=""
@@ -138,7 +142,12 @@ run_variant() {
     q2_owht="1"
   fi
   local run_dir="$OUT_DIR/raw/$label"
+  local done_marker="$run_dir/.done"
   mkdir -p "$run_dir"
+  if [[ "$DRY_RUN" != "1" && "$SKIP_COMPLETED" == "1" && -f "$done_marker" ]]; then
+    echo "Skipping completed LCB $label"
+    return 0
+  fi
 
   local server_cmd=(
     env
@@ -161,7 +170,7 @@ run_variant() {
       --port "$port"
       --no-webui
       --chat-template granite
-      -np 1
+      -np "$SERVER_PARALLEL"
       --cache-ram 0
       --no-cache-prompt
       --ctx-checkpoints 0
@@ -213,6 +222,7 @@ run_variant() {
   if [[ -d "$LCB_ROOT/output" ]]; then
     cp -a "$LCB_ROOT/output/." "$run_dir/lcb_output/" || true
   fi
+  date -u +%Y-%m-%dT%H:%M:%SZ > "$done_marker"
   cleanup
   server_pid=""
 }

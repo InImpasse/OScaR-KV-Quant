@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run llama.cpp/llama-server accuracy suite for BF16 and INT4 delivery variants.
+# Run llama.cpp/llama-server accuracy suite.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,6 +18,7 @@ N_GPU_LAYERS="${N_GPU_LAYERS:-999}"
 FLASH_ATTN="${FLASH_ATTN:-on}"
 PORT="${PORT:-8033}"
 THREADS="${THREADS:-1}"
+SERVER_PARALLEL="${SERVER_PARALLEL:-1}"
 SERVER_TIMEOUT_SEC="${SERVER_TIMEOUT_SEC:-120}"
 EVAL_TIMEOUT_SEC="${EVAL_TIMEOUT_SEC:-0}"
 SEED="${SEED:-1234}"
@@ -25,6 +26,8 @@ TEMPERATURE="${TEMPERATURE:-0}"
 DRY_RUN="${DRY_RUN:-1}"
 ACK_EVAL="${ACK_EVAL:-0}"
 ALLOW_HUMANEVAL_EXEC="${ALLOW_HUMANEVAL_EXEC:-0}"
+RESUME="${RESUME:-1}"
+SKIP_COMPLETED="${SKIP_COMPLETED:-1}"
 
 GPQA_N_CASES="${GPQA_N_CASES:-198}"
 GSM8K_N_CASES="${GSM8K_N_CASES:-200}"
@@ -46,6 +49,8 @@ Environment:
   VARIANTS=baseline_bf16,oscar_int4,plain_int4
   DATASETS=gpqa,gsm8k,math500,humaneval,aime2025
   *_N_CASES and *_N_PREDICT override per-dataset sizes.
+  RESUME=1 automatically resumes incomplete JSON outputs.
+  SKIP_COMPLETED=1 skips JSON outputs whose cases are all status=ok.
   DRY_RUN=0 ACK_EVAL=1 executes.
   ALLOW_HUMANEVAL_EXEC=1 is required when DATASETS includes humaneval.
 EOF
@@ -82,6 +87,8 @@ ctx_size=$CTX_SIZE
 seed=$SEED
 temperature=$TEMPERATURE
 dry_run=$DRY_RUN
+resume=$RESUME
+skip_completed=$SKIP_COMPLETED
 EOF
 
 server_pid=""
@@ -123,6 +130,26 @@ enabled() {
   local list="$1"
   local needle="$2"
   [[ ",$list," == *",$needle,"* || "$list" == "all" ]]
+}
+
+json_complete() {
+  local path="$1"
+  [[ -f "$path" ]] || return 1
+  python3 - "$path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+try:
+    data = json.loads(path.read_text())
+except Exception:
+    raise SystemExit(1)
+cases = data.get("task_states", {}).get("cases", {})
+if not cases:
+    raise SystemExit(1)
+raise SystemExit(0 if all(c.get("status") == "ok" for c in cases.values()) else 1)
+PY
 }
 
 dataset_args() {
@@ -168,7 +195,7 @@ run_variant() {
       --port "$PORT"
       --no-webui
       --chat-template granite
-      -np 1
+      -np "$SERVER_PARALLEL"
       --cache-ram 0
       --no-cache-prompt
       --ctx-checkpoints 0
@@ -189,6 +216,11 @@ run_variant() {
   for dataset in gpqa gsm8k math500 humaneval aime2025; do
     enabled "$DATASETS" "$dataset" || continue
     read -r n_cases n_predict < <(dataset_args "$dataset")
+    local output_json="$OUT_DIR/raw/${label}_${dataset}.json"
+    if [[ "$DRY_RUN" != "1" && "$SKIP_COMPLETED" == "1" ]] && json_complete "$output_json"; then
+      echo "Skipping completed $label $dataset"
+      continue
+    fi
     local eval_cmd=(
       python3 "$LLAMA_EVAL"
         --server "http://127.0.0.1:${PORT}"
@@ -201,8 +233,11 @@ run_variant() {
         --threads "$THREADS"
         --model llama
         --grader-type regex
-        --output "$OUT_DIR/raw/${label}_${dataset}.json"
+        --output "$output_json"
     )
+    if [[ "$DRY_RUN" != "1" && "$RESUME" == "1" && -f "$output_json" ]]; then
+      eval_cmd+=(--resume)
+    fi
     if [[ "$DRY_RUN" == "1" ]]; then
       printf 'DRY_RUN eval %s/%s:' "$label" "$dataset"
       printf ' %q' "${eval_cmd[@]}"

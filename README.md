@@ -278,6 +278,23 @@ runs/<lcb_dir>/logs/
 runs/<lcb_dir>/raw/<variant>/lcb_output/
 ```
 
+Full Granite INT2 accuracy comparison:
+
+```bash
+OUT_DIR=runs/granite_accuracy_full_$(date +%Y%m%d_%H%M%S) \
+DRY_RUN=0 \
+ACK_EVAL=1 \
+ALLOW_HUMANEVAL_EXEC=1 \
+ALLOW_CODE_EXEC=1 \
+  scripts/run_granite_accuracy_full.sh
+```
+
+This wrapper checks models, binaries, Python dependencies, GPU/RAM/CPU capacity,
+and dataset availability before running BF16, OSCAR INT2, and plain INT2 on
+GPQA, GSM8K, MATH-500, HumanEval, AIME25, and LiveCodeBench v6. Re-run the same
+`OUT_DIR=...` command to resume; completed JSON files and LCB variant markers are
+skipped by default.
+
 ## Verification
 
 Run the no-GPU consistency checks:
