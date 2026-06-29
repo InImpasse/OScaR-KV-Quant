@@ -68,6 +68,11 @@ Useful overrides:
   THREADS=64
   HUMANEVAL_SAMPLES=5
   CHECK_DATASETS=0
+
+Network notes:
+  Overseas/unrestricted machines should use the official Hugging Face Hub
+  directly. In China or restricted networks, unset stale HF_ENDPOINT mirrors and
+  configure HTTP_PROXY/HTTPS_PROXY/ALL_PROXY plus HF_HOME/HF_DATASETS_CACHE.
 EOF
 }
 
@@ -174,6 +179,14 @@ check_dataset_loads() {
     return 0
   fi
   log "checking dataset availability; this may download/cache datasets"
+  if [[ -n "${HF_ENDPOINT:-}" ]]; then
+    log "HF_ENDPOINT is set to ${HF_ENDPOINT}; unset it to use the official Hugging Face Hub"
+  fi
+  if [[ -n "${HTTP_PROXY:-}${HTTPS_PROXY:-}${ALL_PROXY:-}" ]]; then
+    log "proxy environment detected for dataset downloads"
+  else
+    log "no proxy environment detected; using direct Hugging Face access"
+  fi
   local dataset
   IFS=',' read -ra _datasets <<< "$NON_LCB_DATASETS"
   for dataset in "${_datasets[@]}"; do
@@ -215,6 +228,10 @@ server_parallel=$SERVER_PARALLEL
 dry_run=$DRY_RUN
 resume=$RESUME
 skip_completed=$SKIP_COMPLETED
+hf_endpoint=${HF_ENDPOINT:-}
+hf_home=${HF_HOME:-}
+hf_datasets_cache=${HF_DATASETS_CACHE:-}
+http_proxy_set=$([[ -n "${HTTP_PROXY:-}${HTTPS_PROXY:-}${ALL_PROXY:-}" ]] && echo 1 || echo 0)
 gpqa_n_cases=$GPQA_N_CASES
 gsm8k_n_cases=$GSM8K_N_CASES
 math500_n_cases=$MATH500_N_CASES

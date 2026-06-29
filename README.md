@@ -325,64 +325,89 @@ short,int4,,
 
 ## Accuracy
 
-The llama.cpp accuracy wrappers use `llama-server` and the same delivery variant
-set by default: BF16, OSCAR INT4, and plain INT4. INT2 variants remain available
-for research comparisons, but they are not the current delivery target.
+Benchmarks: GPQA, GSM8K, MATH-500, HumanEval, LiveCodeBench v6, and AIME 25.
+This llama.cpp branch compares BF16, OSCAR INT4, and plain INT4 on Granite 4.0
+1B through `llama-server`. This mirrors the SGLang branch accuracy structure,
+with INT4 as the current llama.cpp delivery target; INT2 remains available only
+for research comparisons.
 
-Supported tasks:
+Accuracy outputs are generated locally under `runs/<accuracy_dir>/`:
 
 | Benchmark | Metric | Runner |
 |---|---|---|
-| GPQA | Score | `llama-eval.py` |
-| GSM8K | Accuracy | `llama-eval.py` |
-| MATH500 | Score | `llama-eval.py` |
-| HumanEval | Pass@1 | `llama-eval.py` with `human-eval` grader |
-| AIME25 | Score | `llama-eval.py` (`aime2025`) |
-| LCB V6 | Pass@1 | official LiveCodeBench runner through llama-server |
+| **GPQA** | Score | `llama-eval.py` |
+| **GSM8K** | Accuracy | `llama-eval.py` |
+| **MATH-500** | Score | `llama-eval.py` |
+| **HumanEval** | Pass@1/2/5 | `llama-eval.py` with `human-eval` grader |
+| **LCB V6** | Pass@1 | official LiveCodeBench runner through `llama-server` |
+| **AIME25** | Score | `llama-eval.py` (`opencompass/AIME2025`) |
 
-Smoke run:
+AIME25 is loaded from `opencompass/AIME2025`, configs `AIME2025-I` and
+`AIME2025-II`, split `test`, for 30 total examples. Re-run the same
+`OUT_DIR=...` command to resume; completed JSON files and LCB variant markers
+are skipped by default.
+
+For setup and rerun commands, see [How to rerun accuracy](#how-to-rerun-accuracy).
+
+### How to rerun accuracy
+
+Install optional eval dependencies:
 
 ```bash
-OUT_DIR=runs/llamacpp_accuracy_smoke_$(date +%Y%m%d_%H%M%S) \
-VARIANTS=baseline_bf16,oscar_int4,plain_int4 \
-DATASETS=gpqa,gsm8k,math500,aime2025 \
-GPQA_N_CASES=10 \
-GSM8K_N_CASES=10 \
-MATH500_N_CASES=10 \
-AIME25_N_CASES=10 \
-DRY_RUN=0 \
-ACK_EVAL=1 \
-  scripts/run_llamacpp_accuracy_suite.sh
+python3 -m pip install datasets pandas requests tqdm
+python3 -m pip install git+https://github.com/openai/human-eval.git
 ```
 
-Full non-LCB suite:
+For LiveCodeBench v6, use a separate environment if needed:
 
 ```bash
-OUT_DIR=runs/llamacpp_accuracy_full_$(date +%Y%m%d_%H%M%S) \
-VARIANTS=baseline_bf16,oscar_int4,plain_int4 \
-DATASETS=gpqa,gsm8k,math500,humaneval,aime2025 \
-GPQA_N_CASES=198 \
-GSM8K_N_CASES=200 \
-MATH500_N_CASES=500 \
-HUMANEVAL_N_CASES=164 \
-AIME25_N_CASES=30 \
+git clone https://github.com/LiveCodeBench/LiveCodeBench.git third_party/LiveCodeBench
+python3 -m pip install -e third_party/LiveCodeBench
+```
+
+Check the full Granite INT4 plan without running it:
+
+```bash
+OUT_DIR=/tmp/granite_accuracy_plan \
+DRY_RUN=1 \
+  scripts/run_granite_accuracy_full.sh
+```
+
+Run the full Granite suite across BF16, OSCAR INT4, and plain INT4:
+
+```bash
+OUT_DIR=runs/granite_accuracy_full_$(date +%Y%m%d_%H%M%S) \
 DRY_RUN=0 \
 ACK_EVAL=1 \
 ALLOW_HUMANEVAL_EXEC=1 \
-EVAL_TIMEOUT_SEC=0 \
-  scripts/run_llamacpp_accuracy_suite.sh
+ALLOW_CODE_EXEC=1 \
+  scripts/run_granite_accuracy_full.sh
 ```
 
-Outputs:
+Run the full non-LCB suite first, useful when LiveCodeBench needs a separate
+environment:
 
 ```bash
-runs/<accuracy_dir>/accuracy_comparison.md
-runs/<accuracy_dir>/summary.csv
-runs/<accuracy_dir>/raw/
-runs/<accuracy_dir>/logs/
+OUT_DIR=runs/granite_accuracy_int4_non_lcb_full_$(date +%Y%m%d_%H%M%S) \
+VARIANTS=baseline_bf16,oscar_int4,plain_int4 \
+NON_LCB_DATASETS=gpqa,gsm8k,math500,humaneval,aime2025 \
+GPQA_N_CASES=198 GSM8K_N_CASES=200 MATH500_N_CASES=500 AIME25_N_CASES=30 \
+HUMANEVAL_N_CASES=164 HUMANEVAL_SAMPLES=5 RUN_LCB=0 \
+DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 \
+  scripts/run_granite_accuracy_full.sh
 ```
 
-LiveCodeBench v6:
+Run a small smoke before the full suite:
+
+```bash
+OUT_DIR=runs/granite_accuracy_smoke_$(date +%Y%m%d_%H%M%S) \
+GPQA_N_CASES=10 GSM8K_N_CASES=10 MATH500_N_CASES=10 AIME25_N_CASES=10 \
+HUMANEVAL_N_CASES=20 HUMANEVAL_SAMPLES=1 RUN_LCB=0 \
+DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 \
+  scripts/run_granite_accuracy_full.sh
+```
+
+Run only LiveCodeBench v6:
 
 ```bash
 OUT_DIR=runs/llamacpp_lcb_v6_$(date +%Y%m%d_%H%M%S) \
@@ -396,104 +421,57 @@ ALLOW_CODE_EXEC=1 \
   scripts/run_llamacpp_lcb_v6.sh
 ```
 
-LCB outputs are copied under:
+Compare or inspect outputs:
 
 ```bash
-runs/<lcb_dir>/logs/
-runs/<lcb_dir>/raw/<variant>/lcb_output/
-```
-
-Full Granite INT4 accuracy comparison:
-
-```bash
-OUT_DIR=/tmp/granite_accuracy_plan \
-DRY_RUN=1 \
-  scripts/run_granite_accuracy_full.sh
-```
-
-Real full run:
-
-```bash
-OUT_DIR=runs/granite_accuracy_full_$(date +%Y%m%d_%H%M%S) \
-DRY_RUN=0 \
-ACK_EVAL=1 \
-ALLOW_HUMANEVAL_EXEC=1 \
-ALLOW_CODE_EXEC=1 \
-  scripts/run_granite_accuracy_full.sh
-```
-
-This wrapper checks models, binaries, Python dependencies, GPU/RAM/CPU capacity,
-and dataset availability before running BF16, OSCAR INT4, and plain INT4 on
-GPQA, GSM8K, MATH-500, HumanEval, AIME25, and LiveCodeBench v6. Re-run the same
-`OUT_DIR=...` command to resume; completed JSON files and LCB variant markers are
-skipped by default.
-
-Useful accuracy overrides:
-
-```bash
-# Resume an interrupted run.
-OUT_DIR=runs/granite_accuracy_full_YYYYmmdd_HHMMSS \
-DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 ALLOW_CODE_EXEC=1 \
-  scripts/run_granite_accuracy_full.sh
-
-# Small smoke run before the full suite.
-OUT_DIR=runs/granite_accuracy_smoke_$(date +%Y%m%d_%H%M%S) \
-GPQA_N_CASES=10 GSM8K_N_CASES=10 MATH500_N_CASES=10 AIME25_N_CASES=10 \
-HUMANEVAL_N_CASES=20 HUMANEVAL_SAMPLES=1 RUN_LCB=0 \
-DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 \
-  scripts/run_granite_accuracy_full.sh
-
-# Skip dataset preflight if datasets are already cached or the machine is offline.
-CHECK_DATASETS=0 DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 ALLOW_CODE_EXEC=1 \
-  scripts/run_granite_accuracy_full.sh
-
-# Run the full non-LCB suite first; useful when LiveCodeBench needs a separate env.
-OUT_DIR=runs/granite_accuracy_int4_non_lcb_full_$(date +%Y%m%d_%H%M%S) \
-VARIANTS=baseline_bf16,oscar_int4,plain_int4 \
-NON_LCB_DATASETS=gpqa,gsm8k,math500,humaneval,aime2025 \
-GPQA_N_CASES=198 GSM8K_N_CASES=200 MATH500_N_CASES=500 AIME25_N_CASES=30 \
-HUMANEVAL_N_CASES=164 HUMANEVAL_SAMPLES=5 RUN_LCB=0 \
-DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 \
-  scripts/run_granite_accuracy_full.sh
+cat runs/<granite_accuracy_dir>/accuracy_comparison.md
+cat runs/<granite_accuracy_dir>/non_lcb/summary.csv
+ls runs/<granite_accuracy_dir>/lcb_v6/raw/<variant>/lcb_output/
 ```
 
 Common knobs:
 
 | Env | Default | Purpose |
 |---|---:|---|
-| `THREADS` | `nproc` | evaluator request workers; use up to 64 on the target machine |
-| `SERVER_PARALLEL` | `1` | llama-server parallel slots; keep low for one 40GB GPU |
+| `THREADS` | `nproc` | evaluator request workers; use 16-32 first on one 40GB GPU |
+| `SERVER_PARALLEL` | `1` | llama-server parallel slots; try 2-4 before higher values |
 | `RUN_LCB` | `1` | set `0` to skip LiveCodeBench v6 |
 | `RESUME` / `SKIP_COMPLETED` | `1` / `1` | continue partial JSONs and skip completed variants |
 | `HUMANEVAL_SAMPLES` | `5` | repeated HumanEval samples used for Pass@1/2/5 |
+| `CHECK_DATASETS` | `1` | set `0` if datasets are already cached or the machine is offline |
 | `LIVE_CODE_BENCH_ROOT` | `third_party/LiveCodeBench` | LiveCodeBench checkout path |
 
-LiveCodeBench notes from the 40GB A100 bring-up:
+### Accuracy troubleshooting
 
-- The wrapper now defaults to `baseline_bf16,oscar_int4,plain_int4`. Older
-  runs may have used INT2 defaults; start a fresh `OUT_DIR` after pulling this
-  branch.
-- If `lcb_runner` imports fail with `ModuleNotFoundError: anthropic`, install
-  the missing optional dependency in the eval Python environment.
-- If LiveCodeBench reports `KeyError: 'granite-4.0-1b-base'`, keep
-  `LCB_MODEL_NAME=granite-4.0-1b-base`; the wrapper resolves it to an available
-  OpenAI-compatible LiveCodeBench adapter such as `gpt-3.5-turbo-0125` while the
-  requests still go to local `llama-server`.
-- If Hugging Face `datasets` raises `Dataset scripts are no longer supported`
-  for `livecodebench/code_generation_lite`, use `datasets<4` for the LCB
-  environment.
-- For restricted networks, unset custom `HF_ENDPOINT`, set the local proxy
-  (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`), and use a persistent
-  `HF_HOME`/`HF_DATASETS_CACHE`. `opencompass/AIME2025` uses configs
-  `AIME2025-I` and `AIME2025-II`, split `test`, for 30 total examples.
-
-The final combined table is written to:
+- Overseas or unrestricted networks should use the official Hugging Face Hub
+  directly. Do not set `HF_ENDPOINT` unless you intentionally want a mirror.
+- In China or restricted networks, unset mirror endpoints that cause stale data,
+  then set a local proxy and persistent cache before loading datasets:
 
 ```bash
-runs/<granite_accuracy_dir>/accuracy_comparison.md
-runs/<granite_accuracy_dir>/non_lcb/summary.csv
-runs/<granite_accuracy_dir>/lcb_v6/raw/<variant>/lcb_output/
+unset HF_ENDPOINT
+export HTTP_PROXY=http://127.0.0.1:10808
+export HTTPS_PROXY=http://127.0.0.1:10808
+export ALL_PROXY=http://127.0.0.1:10808
+export NO_PROXY=127.0.0.1,localhost
+export no_proxy=127.0.0.1,localhost
+export HF_HOME=/dfs/data/tmp/hf
+export HF_DATASETS_CACHE=/dfs/data/tmp/hf/datasets
 ```
+
+- `Idavidrein/gpqa` is gated. Use an authenticated Hugging Face cache/token, or
+  the CSV fallback in the vendored `llama-eval.py` path.
+- If `lcb_runner` imports fail with `ModuleNotFoundError: anthropic`, install the
+  missing optional dependency in the LiveCodeBench Python environment.
+- If LiveCodeBench reports `KeyError: 'granite-4.0-1b-base'`, keep
+  `LCB_MODEL_NAME=granite-4.0-1b-base`; the wrapper resolves it to an available
+  OpenAI-compatible LiveCodeBench adapter such as `gpt-3.5-turbo-0125`, while
+  requests still go to local `llama-server`.
+- If Hugging Face `datasets` raises `Dataset scripts are no longer supported` for
+  `livecodebench/code_generation_lite`, use `datasets<4` for the LiveCodeBench
+  environment.
+- The wrapper defaults to `baseline_bf16,oscar_int4,plain_int4`. Older local runs
+  may have used INT2 defaults; start a fresh `OUT_DIR` after pulling this branch.
 
 ## Verification
 
