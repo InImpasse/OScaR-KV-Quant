@@ -446,6 +446,15 @@ DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 \
 # Skip dataset preflight if datasets are already cached or the machine is offline.
 CHECK_DATASETS=0 DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 ALLOW_CODE_EXEC=1 \
   scripts/run_granite_accuracy_full.sh
+
+# Run the full non-LCB suite first; useful when LiveCodeBench needs a separate env.
+OUT_DIR=runs/granite_accuracy_int4_non_lcb_full_$(date +%Y%m%d_%H%M%S) \
+VARIANTS=baseline_bf16,oscar_int4,plain_int4 \
+NON_LCB_DATASETS=gpqa,gsm8k,math500,humaneval,aime2025 \
+GPQA_N_CASES=198 GSM8K_N_CASES=200 MATH500_N_CASES=500 AIME25_N_CASES=30 \
+HUMANEVAL_N_CASES=164 HUMANEVAL_SAMPLES=5 RUN_LCB=0 \
+DRY_RUN=0 ACK_EVAL=1 ALLOW_HUMANEVAL_EXEC=1 \
+  scripts/run_granite_accuracy_full.sh
 ```
 
 Common knobs:
@@ -458,6 +467,25 @@ Common knobs:
 | `RESUME` / `SKIP_COMPLETED` | `1` / `1` | continue partial JSONs and skip completed variants |
 | `HUMANEVAL_SAMPLES` | `5` | repeated HumanEval samples used for Pass@1/2/5 |
 | `LIVE_CODE_BENCH_ROOT` | `third_party/LiveCodeBench` | LiveCodeBench checkout path |
+
+LiveCodeBench notes from the 40GB A100 bring-up:
+
+- The wrapper now defaults to `baseline_bf16,oscar_int4,plain_int4`. Older
+  runs may have used INT2 defaults; start a fresh `OUT_DIR` after pulling this
+  branch.
+- If `lcb_runner` imports fail with `ModuleNotFoundError: anthropic`, install
+  the missing optional dependency in the eval Python environment.
+- If LiveCodeBench reports `KeyError: 'granite-4.0-1b-base'`, keep
+  `LCB_MODEL_NAME=granite-4.0-1b-base`; the wrapper resolves it to an available
+  OpenAI-compatible LiveCodeBench adapter such as `gpt-3.5-turbo-0125` while the
+  requests still go to local `llama-server`.
+- If Hugging Face `datasets` raises `Dataset scripts are no longer supported`
+  for `livecodebench/code_generation_lite`, use `datasets<4` for the LCB
+  environment.
+- For restricted networks, unset custom `HF_ENDPOINT`, set the local proxy
+  (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`), and use a persistent
+  `HF_HOME`/`HF_DATASETS_CACHE`. `opencompass/AIME2025` uses configs
+  `AIME2025-I` and `AIME2025-II`, split `test`, for 30 total examples.
 
 The final combined table is written to:
 
