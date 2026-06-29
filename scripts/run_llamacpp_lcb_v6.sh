@@ -23,6 +23,7 @@ POST_READY_SLEEP="${POST_READY_SLEEP:-3}"
 SERVER_PARALLEL="${SERVER_PARALLEL:-1}"
 
 LCB_MODEL_NAME="${LCB_MODEL_NAME:-granite-4.0-1b-base}"
+LCB_MODEL_REGISTRY_KEY="${LCB_MODEL_REGISTRY_KEY:-auto}"
 LCB_RELEASE="${LCB_RELEASE:-release_v6}"
 LCB_N="${LCB_N:-1}"
 LCB_TEMPERATURE="${LCB_TEMPERATURE:-0.2}"
@@ -50,6 +51,8 @@ Required for real execution:
 Useful env:
   VARIANTS=baseline_bf16,oscar_int4,plain_int4
   LIVE_CODE_BENCH_ROOT=third_party/LiveCodeBench
+  LCB_MODEL_NAME=granite-4.0-1b-base
+  LCB_MODEL_REGISTRY_KEY=auto maps LCB_MODEL_NAME to an available OpenAI-compatible adapter key.
   LCB_RELEASE=release_v6
   LCB_N=1
   SKIP_COMPLETED=1 skips variants with .done marker files.
@@ -78,10 +81,97 @@ if [[ "$DRY_RUN" != "1" ]]; then
   [[ -d "$LCB_ROOT/lcb_runner" ]] || { echo "LiveCodeBench checkout not found: $LCB_ROOT/lcb_runner" >&2; exit 1; }
 fi
 
+resolve_lcb_model_registry_key() {
+  "$PY" - "$LCB_ROOT" "$LCB_MODEL_NAME" "$LCB_MODEL_REGISTRY_KEY" <<'PY'
+import sys
+
+lcb_root, model_name, requested = sys.argv[1:4]
+sys.path.insert(0, lcb_root)
+
+try:
+    from lcb_runner.lm_styles import LanguageModelStore
+except Exception as exc:
+    print(f"ERROR: could not import LiveCodeBench LanguageModelStore: {exc}", file=sys.stderr)
+    raise SystemExit(2)
+
+keys = list(LanguageModelStore.keys())
+if model_name in LanguageModelStore:
+    print(model_name)
+    raise SystemExit(0)
+
+if requested != "auto":
+    if requested in LanguageModelStore:
+        print(requested)
+        raise SystemExit(0)
+    print(f"ERROR: LCB_MODEL_REGISTRY_KEY={requested!r} is not registered by LiveCodeBench.", file=sys.stderr)
+    print("Available model keys:", file=sys.stderr)
+    for key in sorted(keys):
+        print(f"  {key}", file=sys.stderr)
+    raise SystemExit(2)
+
+preferred = [
+    "gpt-3.5-turbo",
+    "gpt-3.5-turbo-0125",
+    "gpt-3.5-turbo-1106",
+    "gpt-4o-mini",
+    "gpt-4o-mini-2024-07-18",
+    "gpt-4o",
+    "gpt-4-turbo",
+    "gpt-4",
+]
+for key in preferred:
+    if key in LanguageModelStore:
+        print(key)
+        raise SystemExit(0)
+
+scored = []
+for key in keys:
+    low = key.lower()
+    score = 0
+    if "gpt" in low or "openai" in low:
+        score += 10
+    if "turbo" in low or "4o" in low:
+        score += 3
+    if "chat" in low or "instruct" in low:
+        score += 1
+    if score:
+        scored.append((score, key))
+
+if scored:
+    print(sorted(scored, key=lambda item: (-item[0], item[1]))[0][1])
+    raise SystemExit(0)
+
+print(f"ERROR: {model_name!r} is not registered and no OpenAI-like fallback key was found.", file=sys.stderr)
+print("Available model keys:", file=sys.stderr)
+for key in sorted(keys):
+    print(f"  {key}", file=sys.stderr)
+raise SystemExit(2)
+PY
+}
+
+LCB_MODEL_REGISTRY_EFFECTIVE="$LCB_MODEL_NAME"
+LCB_ALIAS_DIR=""
+if [[ "$DRY_RUN" != "1" ]]; then
+  LCB_MODEL_REGISTRY_EFFECTIVE="$(resolve_lcb_model_registry_key)"
+  if [[ "$LCB_MODEL_REGISTRY_EFFECTIVE" != "$LCB_MODEL_NAME" ]]; then
+    LCB_ALIAS_DIR="$OUT_DIR/lcb_model_alias"
+    mkdir -p "$LCB_ALIAS_DIR"
+    cat > "$LCB_ALIAS_DIR/sitecustomize.py" <<PY
+from lcb_runner.lm_styles import LanguageModelStore
+
+if "$LCB_MODEL_NAME" not in LanguageModelStore:
+    LanguageModelStore["$LCB_MODEL_NAME"] = LanguageModelStore["$LCB_MODEL_REGISTRY_EFFECTIVE"]
+PY
+    echo "LCB model alias: $LCB_MODEL_NAME -> $LCB_MODEL_REGISTRY_EFFECTIVE"
+  fi
+fi
+
 mkdir -p "$OUT_DIR/logs" "$OUT_DIR/raw"
 cat > "$OUT_DIR/config.txt" <<EOF
 variants=$VARIANTS
 lcb_root=$LCB_ROOT
+lcb_model_name=$LCB_MODEL_NAME
+lcb_model_registry_key=$LCB_MODEL_REGISTRY_EFFECTIVE
 lcb_release=$LCB_RELEASE
 lcb_n=$LCB_N
 lcb_temperature=$LCB_TEMPERATURE
@@ -215,7 +305,11 @@ run_variant() {
     export OPENAI_KEY="${OPENAI_KEY:-EMPTY}"
     export OPENAI_BASE_URL="http://127.0.0.1:${port}/v1"
     export LCB_USE_COMPLETIONS="${LCB_USE_COMPLETIONS:-1}"
-    export PYTHONPATH="$LCB_ROOT:${PYTHONPATH:-}"
+    if [[ -n "$LCB_ALIAS_DIR" ]]; then
+      export PYTHONPATH="$LCB_ALIAS_DIR:$LCB_ROOT:${PYTHONPATH:-}"
+    else
+      export PYTHONPATH="$LCB_ROOT:${PYTHONPATH:-}"
+    fi
     "${lcb_cmd[@]}"
   ) 2>&1 | tee "$OUT_DIR/logs/${label}.lcb.log"
 
