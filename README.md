@@ -450,13 +450,13 @@ Common knobs:
 
 ```bash
 unset HF_ENDPOINT
-export HTTP_PROXY=http://127.0.0.1:10808
-export HTTPS_PROXY=http://127.0.0.1:10808
-export ALL_PROXY=http://127.0.0.1:10808
+export HTTP_PROXY=http://<proxy-host>:<proxy-port>
+export HTTPS_PROXY=http://<proxy-host>:<proxy-port>
+export ALL_PROXY=http://<proxy-host>:<proxy-port>
 export NO_PROXY=127.0.0.1,localhost
 export no_proxy=127.0.0.1,localhost
-export HF_HOME=/dfs/data/tmp/hf
-export HF_DATASETS_CACHE=/dfs/data/tmp/hf/datasets
+export HF_HOME=<cache-root>/hf
+export HF_DATASETS_CACHE=<cache-root>/hf/datasets
 ```
 
 - `Idavidrein/gpqa` is gated. Use an authenticated Hugging Face cache/token, or
