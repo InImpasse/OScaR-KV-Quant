@@ -81,6 +81,40 @@ if [[ "$DRY_RUN" != "1" ]]; then
   [[ -d "$LCB_ROOT/lcb_runner" ]] || { echo "LiveCodeBench checkout not found: $LCB_ROOT/lcb_runner" >&2; exit 1; }
 fi
 
+check_lcb_python_deps() {
+  "$PY" - "$LCB_ROOT" <<'PY'
+import sys
+
+lcb_root = sys.argv[1]
+sys.path.insert(0, lcb_root)
+
+missing = []
+for module in ("datasets", "anthropic", "lcb_runner"):
+    try:
+        __import__(module)
+    except Exception as exc:
+        missing.append(f"{module}: {exc}")
+
+if missing:
+    print("ERROR: missing LiveCodeBench Python dependencies:", file=sys.stderr)
+    for item in missing:
+        print(f"  {item}", file=sys.stderr)
+    raise SystemExit(2)
+
+import datasets
+
+version = getattr(datasets, "__version__", "0")
+major = int(version.split(".", 1)[0]) if version[:1].isdigit() else 0
+if major >= 4:
+    print(
+        "ERROR: LiveCodeBench code_generation_lite requires Hugging Face datasets<4; "
+        f"found datasets=={version}. Install with: python3 -m pip install 'datasets<4'",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+PY
+}
+
 resolve_lcb_model_registry_key() {
   "$PY" - "$LCB_ROOT" "$LCB_MODEL_NAME" "$LCB_MODEL_REGISTRY_KEY" <<'PY'
 import sys
@@ -151,6 +185,7 @@ PY
 
 LCB_MODEL_REGISTRY_EFFECTIVE="$LCB_MODEL_NAME"
 if [[ "$DRY_RUN" != "1" ]]; then
+  check_lcb_python_deps
   LCB_MODEL_REGISTRY_EFFECTIVE="$(resolve_lcb_model_registry_key)"
   if [[ "$LCB_MODEL_REGISTRY_EFFECTIVE" != "$LCB_MODEL_NAME" ]]; then
     echo "LCB model adapter: $LCB_MODEL_NAME -> $LCB_MODEL_REGISTRY_EFFECTIVE"
