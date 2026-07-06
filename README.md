@@ -145,18 +145,19 @@ Accuracy comparison:
 
 | Benchmark | Metric | BF16 | OSCAR INT4 | Δ vs BF16 | Plain INT4 | Δ vs BF16 |
 |---|---|---:|---:|---:|---:|---:|
-| **GPQA** | Score | 23.74 | 24.24 | **+0.50 pt** | 15.66 | **-8.08 pt** |
-| **GSM8K** | Accuracy | 56.0 | 54.5 | **-1.5 pt** | 3.0 | **-53.0 pt** |
-| **MATH500** | Score | 7.40 | 7.20 | **-0.20 pt** | 0.20 | **-7.20 pt** |
-| **LCB V6** | Pass@1 | 7.87 | 6.92 | **-0.95 pt** | 0.00 | **-7.87 pt** |
-| **HumanEval** | Pass@1 | 32.93 | 12.68 | **-20.25 pt** | 0.00 | **-32.93 pt** |
-| **HumanEval** | Pass@2 | 33.66 | 19.88 | **-13.78 pt** | 0.00 | **-33.66 pt** |
-| **HumanEval** | Pass@5 | 34.76 | 32.93 | **-1.83 pt** | 0.00 | **-34.76 pt** |
-| **AIME25** | Score | 0.00 | 0.00 | — | 0.00 | — |
+| **GPQA** | Score | 27.78 | 27.78 | **0.00 pt** | 26.77 | **-1.01 pt** |
+| **GSM8K** | Accuracy | 61.50 | 56.00 | **-5.50 pt** | 58.00 | **-3.50 pt** |
+| **MATH500** | Score | 44.00 | 42.00 | **-2.00 pt** | 42.40 | **-1.60 pt** |
+| **LCB V6** | Pass@1 | 5.71 | 5.71 | **0.00 pt** | 5.71 | **0.00 pt** |
+| **HumanEval** | Pass@1 | 41.46 | 44.51 | **+3.05 pt** | 38.41 | **-3.05 pt** |
+| **HumanEval** | Pass@2 | 53.66 | 54.27 | **+0.61 pt** | 49.39 | **-4.27 pt** |
+| **HumanEval** | Pass@5 | 64.02 | 64.63 | **+0.61 pt** | 63.41 | **-0.61 pt** |
+| **AIME25** | Score | 0.00 | 0.00 | **0.00 pt** | 0.00 | **0.00 pt** |
 
-OSCAR INT4 stays close to BF16 on GPQA, GSM8K, MATH500, HumanEval Pass@5, and
-LCB v6, while plain INT4 collapses across most of the accuracy suite. HumanEval
-Pass@1 and Pass@2 remain the main OSCAR INT4 regressions in this table.
+These are the current llama.cpp harness measurements. GPQA and LCB v6 match BF16,
+HumanEval is slightly ahead of BF16 after the grader fix, while GSM8K and
+MATH500 remain below BF16. Plain INT4 is close on MATH500 and HumanEval Pass@5
+but trails BF16 on the other metrics.
 
 Accuracy outputs are generated locally under `runs/<accuracy_dir>/`:
 
