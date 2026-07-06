@@ -71,6 +71,7 @@ DRY_RUN_ENTRYPOINTS = {
     "scripts/q2_profile.sh": ("DRY_RUN=\"${DRY_RUN:-1}\"", "Set DRY_RUN=0"),
     "scripts/q2_segment_bench.sh": ("DRY_RUN=\"${DRY_RUN:-1}\"", "Set DRY_RUN=0"),
     "scripts/run_kv_ppl_matrix.sh": ("DRY_RUN=\"${DRY_RUN:-1}\"", "ACK_PPL_MATRIX"),
+    "scripts/run_granite_accuracy_full.sh": ("DRY_RUN=\"${DRY_RUN:-1}\"", "ACK_EVAL"),
     "scripts/run_llamacpp_accuracy_suite.sh": ("DRY_RUN=\"${DRY_RUN:-1}\"", "ACK_EVAL"),
     "scripts/run_llamacpp_lcb_v6.sh": ("DRY_RUN=\"${DRY_RUN:-1}\"", "ALLOW_CODE_EXEC"),
     "scripts/run_mixed_vec_int2_ramp.sh": ("DRY_RUN=\"${DRY_RUN:-1}\"", "ACK_MIXED_VEC_RAMP"),
@@ -78,6 +79,7 @@ DRY_RUN_ENTRYPOINTS = {
     "scripts/run_mixed_vec_smoke.sh": ("DRY_RUN=\"${DRY_RUN:-1}\"", "ACK_MIXED_VEC_SMOKE"),
     "scripts/run_q2_tile_ab.sh": ("RUN_REAL=\"${RUN_REAL:-0}\"", "Dry run: set RUN_REAL=1"),
     "scripts/run_llamacpp.sh": ("DRY_RUN=\"${DRY_RUN:-1}\"", "ACK_RUN_LLAMA"),
+    "scripts/run_gpqa_gsm8k_kv_eval.sh": ("DRY_RUN=\"${DRY_RUN:-1}\"", "ACK_EVAL"),
     "scripts/run_gpqa_gsm8k_cli_eval.py": ("--real --ack-eval", "Dry run complete"),
     "scripts/run_q2_ramp_next.py": ("--real executes the next ramp step", "--ack-real"),
     "scripts/verify_llamacpp_32k_kv_no_gpu.sh": (

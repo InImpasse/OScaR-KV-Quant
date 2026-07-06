@@ -15,8 +15,8 @@ BENCHMARK_LABEL = {
 
 VARIANT_LABEL = {
     "baseline_bf16": "BF16",
-    "oscar_int2": "OSCAR INT2",
-    "plain_int2": "Plain INT2",
+    "oscar_int4": "OSCAR INT4",
+    "plain_int4": "Plain INT4",
 }
 
 
@@ -80,15 +80,15 @@ def main() -> None:
             writer.writerow({k: out.get(k, "") for k in fields})
 
     lines = [
-        "| Benchmark | Metric | BF16 | OSCAR INT2 | Delta vs BF16 | Plain INT2 | Delta vs BF16 |",
+        "| Benchmark | Metric | BF16 | OSCAR INT4 | Delta vs BF16 | Plain INT4 | Delta vs BF16 |",
         "|---|---|---:|---:|---:|---:|---:|",
     ]
     for dataset in ("gpqa", "gsm8k", "math500", "humaneval", "aime2025"):
         label, metric = BENCHMARK_LABEL[dataset]
         data = by_dataset.get(dataset, {})
         bf16 = data.get("baseline_bf16", {}).get("score_pct")
-        oscar = data.get("oscar_int2", {}).get("score_pct")
-        plain = data.get("plain_int2", {}).get("score_pct")
+        oscar = data.get("oscar_int4", {}).get("score_pct")
+        plain = data.get("plain_int4", {}).get("score_pct")
         lines.append(
             f"| {label} | {metric} | {fmt_score(bf16)} | {fmt_score(oscar)} | "
             f"{fmt_delta(oscar, bf16)} | {fmt_score(plain)} | {fmt_delta(plain, bf16)} |"

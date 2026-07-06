@@ -23,6 +23,7 @@ SERVER_TIMEOUT_SEC="${SERVER_TIMEOUT_SEC:-120}"
 EVAL_TIMEOUT_SEC="${EVAL_TIMEOUT_SEC:-0}"
 SEED="${SEED:-1234}"
 TEMPERATURE="${TEMPERATURE:-0}"
+HUMANEVAL_TEMPERATURE="${HUMANEVAL_TEMPERATURE:-0.2}"
 DRY_RUN="${DRY_RUN:-1}"
 ACK_EVAL="${ACK_EVAL:-0}"
 ALLOW_HUMANEVAL_EXEC="${ALLOW_HUMANEVAL_EXEC:-0}"
@@ -35,10 +36,12 @@ MATH500_N_CASES="${MATH500_N_CASES:-500}"
 HUMANEVAL_N_CASES="${HUMANEVAL_N_CASES:-164}"
 AIME25_N_CASES="${AIME25_N_CASES:-60}"
 GPQA_N_PREDICT="${GPQA_N_PREDICT:-96}"
-GSM8K_N_PREDICT="${GSM8K_N_PREDICT:-128}"
+GSM8K_N_PREDICT="${GSM8K_N_PREDICT:-384}"
 MATH500_N_PREDICT="${MATH500_N_PREDICT:-2048}"
 HUMANEVAL_N_PREDICT="${HUMANEVAL_N_PREDICT:-512}"
-AIME25_N_PREDICT="${AIME25_N_PREDICT:-2048}"
+AIME25_N_PREDICT="${AIME25_N_PREDICT:-4096}"
+# OSCAR INT4 clip ratio for the default oscar_int4 variant (CLI oscar_env uses 0).
+OSCAR_INT4_CLIP_RATIO="${OSCAR_INT4_CLIP_RATIO:-0}"
 
 usage() {
   cat <<'EOF'
@@ -86,6 +89,7 @@ datasets=$DATASETS
 ctx_size=$CTX_SIZE
 seed=$SEED
 temperature=$TEMPERATURE
+humaneval_temperature=$HUMANEVAL_TEMPERATURE
 dry_run=$DRY_RUN
 resume=$RESUME
 skip_completed=$SKIP_COMPLETED
@@ -163,6 +167,13 @@ dataset_args() {
   esac
 }
 
+dataset_temperature() {
+  case "$1" in
+    humaneval) printf '%s\n' "$HUMANEVAL_TEMPERATURE" ;;
+    *) printf '%s\n' "$TEMPERATURE" ;;
+  esac
+}
+
 run_variant() {
   local label="$1"
   local model="$2"
@@ -184,6 +195,7 @@ run_variant() {
       LLAMA_KV_CLIP_RATIO="$clip_ratio"
       LLAMA_KV_CLIP_RATIO_K="$clip_ratio"
       LLAMA_KV_CLIP_RATIO_V="$clip_ratio"
+      LLAMA_EVAL_API=completions
     "$LLAMA_SERVER"
       -m "$model"
       -c "$CTX_SIZE"
@@ -216,12 +228,15 @@ run_variant() {
   for dataset in gpqa gsm8k math500 humaneval aime2025; do
     enabled "$DATASETS" "$dataset" || continue
     read -r n_cases n_predict < <(dataset_args "$dataset")
+    read -r dataset_temperature < <(dataset_temperature "$dataset")
     local output_json="$OUT_DIR/raw/${label}_${dataset}.json"
     if [[ "$DRY_RUN" != "1" && "$SKIP_COMPLETED" == "1" ]] && json_complete "$output_json"; then
       echo "Skipping completed $label $dataset"
       continue
     fi
     local eval_cmd=(
+      env
+        LLAMA_EVAL_API=completions
       python3 "$LLAMA_EVAL"
         --server "http://127.0.0.1:${PORT}"
         --server-name "$label"
@@ -229,7 +244,7 @@ run_variant() {
         --n_cases "$n_cases"
         --seed "$SEED"
         --n_predict "$n_predict"
-        --temperature "$TEMPERATURE"
+        --temperature "$dataset_temperature"
         --threads "$THREADS"
         --model llama
         --grader-type regex
@@ -260,7 +275,10 @@ run_variant() {
 }
 
 enabled "$VARIANTS" baseline_bf16 && run_variant baseline_bf16 "$BASE_MODEL" bf16 bf16 0 0
-enabled "$VARIANTS" oscar_int4 && run_variant oscar_int4 "$OSCAR_MODEL" q4_0 q4_0 1 0.96
+enabled "$VARIANTS" oscar_bf16_rot && run_variant oscar_bf16_rot "$OSCAR_MODEL" bf16 bf16 1 0
+enabled "$VARIANTS" oscar_int4 && run_variant oscar_int4 "$OSCAR_MODEL" q4_0 q4_0 1 "$OSCAR_INT4_CLIP_RATIO"
+enabled "$VARIANTS" oscar_int4_clip096 && run_variant oscar_int4_clip096 "$OSCAR_MODEL" q4_0 q4_0 1 0.96
+enabled "$VARIANTS" oscar_int4_clip0 && run_variant oscar_int4_clip0 "$OSCAR_MODEL" q4_0 q4_0 1 0
 enabled "$VARIANTS" plain_int4 && run_variant plain_int4 "$BASE_MODEL" q4_0 q4_0 0 0
 enabled "$VARIANTS" oscar_int2 && run_variant oscar_int2 "$OSCAR_MODEL" q2_0 q2_0 1 0
 enabled "$VARIANTS" plain_int2 && run_variant plain_int2 "$BASE_MODEL" q2_0 q2_0 0 0

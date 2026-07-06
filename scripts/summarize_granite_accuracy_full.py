@@ -48,6 +48,14 @@ def load_non_lcb(run_dir: Path):
 
 def find_lcb_score(path: Path):
     text = path.read_text(errors="ignore")
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if lines:
+        try:
+            value = float(lines[-1])
+            if 0.0 <= value <= 1.0:
+                return value * 100.0
+        except ValueError:
+            pass
     patterns = [
         r"pass@1[^0-9]*([0-9]+(?:\.[0-9]+)?)",
         r"pass_at_1[^0-9]*([0-9]+(?:\.[0-9]+)?)",
@@ -112,6 +120,19 @@ def load_humaneval_passk(run_dir: Path):
     return rows
 
 
+def humaneval_passk_redundant(scores: dict) -> bool:
+    """True when Pass@2/5 add no information (typically temperature=0)."""
+    for variant in VARIANTS:
+        pass1 = scores.get((variant, "humaneval_pass1"))
+        if pass1 is None:
+            continue
+        for k in (2, 5):
+            other = scores.get((variant, f"humaneval_pass{k}"))
+            if other is not None and round(pass1, 4) != round(other, 4):
+                return False
+    return True
+
+
 def main():
     if len(sys.argv) != 2:
         print(f"usage: {sys.argv[0]} RUN_DIR", file=sys.stderr)
@@ -126,16 +147,21 @@ def main():
         "| Benchmark | Metric | BF16 | OSCAR INT4 | Delta vs BF16 | Plain INT4 | Delta vs BF16 |",
         "|---|---|---:|---:|---:|---:|---:|",
     ]
-    ordered = (
+    ordered = [
         ("gpqa", "GPQA", "Score"),
         ("gsm8k", "GSM8K", "Accuracy"),
         ("math500", "MATH500", "Score"),
         ("lcb_v6", "LCB V6", "Pass@1"),
         ("humaneval_pass1", "HumanEval", "Pass@1"),
-        ("humaneval_pass2", "HumanEval", "Pass@2"),
-        ("humaneval_pass5", "HumanEval", "Pass@5"),
-        ("aime2025", "AIME25", "Score"),
-    )
+    ]
+    if not humaneval_passk_redundant(scores):
+        ordered.extend(
+            [
+                ("humaneval_pass2", "HumanEval", "Pass@2"),
+                ("humaneval_pass5", "HumanEval", "Pass@5"),
+            ]
+        )
+    ordered.append(("aime2025", "AIME25", "Score"))
     for dataset, label, metric in ordered:
         bf16 = scores.get(("baseline_bf16", dataset))
         oscar = scores.get(("oscar_int4", dataset))
@@ -150,7 +176,9 @@ def main():
         "Notes:",
         "- Non-LCB results are parsed from `non_lcb/summary.csv`.",
         "- LCB parsing is best-effort because LiveCodeBench output filenames vary by version.",
-        "- HumanEval Pass@1/2/5 are computed from repeated chunks when `HUMANEVAL_SAMPLES>=5`.",
+        "- HumanEval Pass@1/2/5 use 164 problems x `HUMANEVAL_SAMPLES` (default 5), matching the SGLang suite shape.",
+        "- HumanEval sampling defaults to `HUMANEVAL_TEMPERATURE=0.2`; Pass@2/5 only differ when sampling is enabled.",
+        "- AIME25 defaults to `AIME25_N_PREDICT=4096`; answers require an explicit `\\boxed{}` after thinking blocks are stripped.",
     ])
 
     out = run_dir / "accuracy_comparison.md"

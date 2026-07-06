@@ -32,6 +32,7 @@ LCB_MAX_TOKENS="${LCB_MAX_TOKENS:-2000}"
 LCB_MULTIPROCESS="${LCB_MULTIPROCESS:-1}"
 LCB_NUM_PROCESS_EVALUATE="${LCB_NUM_PROCESS_EVALUATE:-1}"
 LCB_TIMEOUT="${LCB_TIMEOUT:-6}"
+OSCAR_INT4_CLIP_RATIO="${OSCAR_INT4_CLIP_RATIO:-0}"
 LCB_EXTRA_ARGS=(${LCB_EXTRA_ARGS:-})
 
 DRY_RUN="${DRY_RUN:-1}"
@@ -303,6 +304,7 @@ run_variant() {
       --temperature "$LCB_TEMPERATURE"
       --top_p "$LCB_TOP_P"
       --max_tokens "$LCB_MAX_TOKENS"
+      --use_cache
       --multiprocess "$LCB_MULTIPROCESS"
       --num_process_evaluate "$LCB_NUM_PROCESS_EVALUATE"
       --timeout "$LCB_TIMEOUT"
@@ -331,7 +333,11 @@ run_variant() {
     export OPENAI_KEY="${OPENAI_KEY:-EMPTY}"
     export OPENAI_BASE_URL="http://127.0.0.1:${port}/v1"
     export LCB_USE_COMPLETIONS="${LCB_USE_COMPLETIONS:-1}"
+    export LCB_MODEL_REPR_OVERRIDE="$label"
     export PYTHONPATH="$LCB_ROOT:${PYTHONPATH:-}"
+    export NO_PROXY="127.0.0.1,localhost,*"
+    export no_proxy="127.0.0.1,localhost,*"
+    unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
     "${lcb_cmd[@]}"
   ) 2>&1 | tee "$OUT_DIR/logs/${label}.lcb.log"
 
@@ -350,7 +356,7 @@ if enabled baseline_bf16; then
   i=$((i + 1))
 fi
 if enabled oscar_int4; then
-  run_variant oscar_int4 "$OSCAR_MODEL" q4_0 q4_0 1 0.96 "$((PORT_BASE + i))"
+  run_variant oscar_int4 "$OSCAR_MODEL" q4_0 q4_0 1 "$OSCAR_INT4_CLIP_RATIO" "$((PORT_BASE + i))"
   i=$((i + 1))
 fi
 if enabled plain_int4; then

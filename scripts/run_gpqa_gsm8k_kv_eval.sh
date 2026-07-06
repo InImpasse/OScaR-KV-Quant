@@ -205,7 +205,7 @@ case_enabled oscar_turbo2_streamk && run_variant oscar_turbo2_streamk "$OSCAR_MO
 case_enabled turbo2_streamk && run_variant turbo2_streamk "$BASE_MODEL" turbo2 turbo2 0 0 1
 case_enabled oscar_turbo3 && run_variant oscar_turbo3 "$OSCAR_MODEL" turbo3 turbo3 1 0.96 0
 case_enabled plain_int3 && run_variant plain_int3 "$BASE_MODEL" turbo3 turbo3 0 0 0
-case_enabled oscar_int4 && run_variant oscar_int4 "$OSCAR_MODEL" q4_0 q4_0 1 0.96 0
+case_enabled oscar_int4 && run_variant oscar_int4 "$OSCAR_MODEL" q4_0 q4_0 1 0 0
 case_enabled plain_int4 && run_variant plain_int4 "$BASE_MODEL" q4_0 q4_0 0 0 0
 
 if [[ "$DRY_RUN" != "1" ]]; then
