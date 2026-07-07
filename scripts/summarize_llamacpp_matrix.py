@@ -148,6 +148,13 @@ def _length(preset: str) -> str:
     return {2048: "2K", 8192: "8K", 16384: "16K", 32768: "32K"}.get(n, str(n))
 
 
+def _quant_mode_pair(matrix: dict[str, dict[str, dict[str, str]]]) -> tuple[str, str]:
+    modes = {mode for rows in matrix.values() for mode in rows}
+    if "oscar-int4" in modes or "int4" in modes:
+        return "oscar-int4", "int4"
+    return "oscar-int2", "int2"
+
+
 def _table(
     title: str,
     matrix: dict[str, dict[str, dict[str, str]]],
@@ -156,15 +163,16 @@ def _table(
     nd: int,
     memory: bool = False,
 ) -> list[str]:
+    oscar_mode, plain_mode = _quant_mode_pair(matrix)
     lines = [
         title,
-        "Length (tokens)\tBF16\tOSCAR INT2\tDelta vs BF16\tplain INT2\tDelta vs BF16",
+        f"Length (tokens)\tBF16\t{MODE_LABEL[oscar_mode]}\tDelta vs BF16\t{MODE_LABEL[plain_mode]}\tDelta vs BF16",
     ]
     for preset in PRESET_TOKENS:
         rows = matrix.get(preset, {})
         bf16 = _f(rows.get("bf16"), field)
-        oscar = _f(rows.get("oscar-int2"), field)
-        plain = _f(rows.get("int2"), field)
+        oscar = _f(rows.get(oscar_mode), field)
+        plain = _f(rows.get(plain_mode), field)
         delta_fn = _mem_delta if memory else _pct
         lines.append(
             "\t".join(
@@ -190,17 +198,18 @@ def _markdown_table(
     nd: int,
     memory: bool = False,
 ) -> list[str]:
+    oscar_mode, plain_mode = _quant_mode_pair(matrix)
     lines = [
         f"### {title}",
         "",
-        "| Length (tokens) | BF16 | OSCAR INT2 | Delta vs BF16 | plain INT2 | Delta vs BF16 |",
+        f"| Length (tokens) | BF16 | {MODE_LABEL[oscar_mode]} | Delta vs BF16 | {MODE_LABEL[plain_mode]} | Delta vs BF16 |",
         "|---:|---:|---:|---:|---:|---:|",
     ]
     for preset in PRESET_TOKENS:
         rows = matrix.get(preset, {})
         bf16 = _f(rows.get("bf16"), field)
-        oscar = _f(rows.get("oscar-int2"), field)
-        plain = _f(rows.get("int2"), field)
+        oscar = _f(rows.get(oscar_mode), field)
+        plain = _f(rows.get(plain_mode), field)
         delta_fn = _mem_delta if memory else _pct
         lines.append(
             f"| {_length(preset)} | {_fmt_num(bf16, nd)} | {_fmt_num(oscar, nd)} | "
@@ -310,14 +319,19 @@ def _write_graph_compare(base: Path, manual_metrics: Path | None = None) -> None
     off = _matrix(base / "off")
     _apply_manual_metrics(on, manual_metrics if manual_metrics is not None else None)
     _apply_manual_metrics(off, manual_metrics if manual_metrics is not None else None)
-    lines.append("Prefill\tBF16 steady x\tOSCAR steady x\tplain INT2 steady x\tBF16 peak Delta\tOSCAR peak Delta\tplain INT2 peak Delta")
+    oscar_mode, plain_mode = _quant_mode_pair(on if any(on.values()) else off)
+    lines.append(
+        "Prefill\tBF16 steady x\t"
+        f"{MODE_LABEL[oscar_mode]} steady x\t{MODE_LABEL[plain_mode]} steady x\t"
+        f"BF16 peak Delta\t{MODE_LABEL[oscar_mode]} peak Delta\t{MODE_LABEL[plain_mode]} peak Delta"
+    )
     for preset in PRESET_TOKENS:
         row = [_length(preset)]
-        for mode in ("bf16", "oscar-int2", "int2"):
+        for mode in ("bf16", oscar_mode, plain_mode):
             on_tg = _f(on.get(preset, {}).get(mode), "tg_tps")
             off_tg = _f(off.get(preset, {}).get(mode), "tg_tps")
             row.append("" if on_tg is None or off_tg in (None, 0) else f"{on_tg / off_tg:.2f}x")
-        for mode in ("bf16", "oscar-int2", "int2"):
+        for mode in ("bf16", oscar_mode, plain_mode):
             on_peak = _f(on.get(preset, {}).get(mode), "peak_mib")
             off_peak = _f(off.get(preset, {}).get(mode), "peak_mib")
             row.append("" if on_peak is None or off_peak is None else f"{int(round(on_peak - off_peak)):+d} MiB")

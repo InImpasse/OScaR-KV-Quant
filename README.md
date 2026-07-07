@@ -14,8 +14,8 @@ Validated path: **Granite 4.0 1B BF16 GGUF** with optional baked K/V rotation
 GGUF.
 
 - **Delivery path**: `oscar_int4` / `plain_int4` using `q4_0/q4_0` KV cache.
-- **Speed/memory**: 32K BF16 vs INT4 archived under
-  `runs/oscar_int4_bf16_32k_n64_decode_20260624/`.
+- **Speed/memory**: 512 / 2K / 8K / 16K / 32K BF16 vs INT4 sweep archived
+  under `runs/llamacpp_int4_context_sweep_20260707T084527Z/`.
 - **Accuracy**: GPQA, GSM8K, MATH-500, HumanEval, LiveCodeBench v6, and AIME25
   through `llama-server`.
 - **Model scope**: all numbers here are local Granite 4.0 1B results, not
@@ -23,7 +23,7 @@ GGUF.
 
 ## Key Takeaways
 
-- INT4 is the current successful llama.cpp route on this hardware.
+- INT4 is the current recommended llama.cpp route on this hardware.
 - At 32K, `oscar_int4` reduces peak memory by about **1.8 GiB** versus BF16
   while preserving prefill throughput in the archived llama.cpp run.
 - Accuracy is reported as BF16 vs OSCAR INT4 vs plain INT4, with a reference
@@ -121,18 +121,47 @@ weights remain BF16.
 
 ## Speed And Memory
 
-Current delivery evidence is the 32K decode-heavy llama.cpp run:
-`runs/oscar_int4_bf16_32k_n64_decode_20260624/`.
+Current context-sweep evidence:
+`runs/llamacpp_int4_context_sweep_20260707T084527Z/`.
 
-| Variant | KV cache | KV pool MiB | Peak MiB | Prefill tok/s | Decode tok/s | Delta peak vs BF16 |
-|---|---|---:|---:|---:|---:|---:|
-| BF16 | `bf16/bf16` | 2560 | 6143 | 2319.0 | 63.3 | — |
-| OSCAR INT4 | `q4_0/q4_0` | 720 | 4307 | 2344.8 | 59.7 | -1836 MiB |
+The sweep uses `GEN_TOKENS=1` and is intended for KV pool, peak memory, and
+prefill throughput. Decode-heavy behavior is still represented by the archived
+32K n64 run `runs/oscar_int4_bf16_32k_n64_decode_20260624/`.
 
-The measured peak drop is almost identical to the KV pool drop, so the memory
-win is attributable to the KV-cache representation rather than unrelated arena
-noise. Prefill is effectively at BF16 speed; decode is about 94% of BF16 in this
-run.
+### KV Pool
+
+| Context | BF16 | OSCAR INT4 | Delta vs BF16 | plain INT4 | Delta vs BF16 |
+|---|---:|---:|---:|---:|---:|
+| 512 | 40 MiB | 11.25 MiB | -72% | 11.25 MiB | -72% |
+| 2K | 160 MiB | 45 MiB | -72% | 45 MiB | -72% |
+| 8K | 640 MiB | 180 MiB | -72% | 180 MiB | -72% |
+| 16K | 1280 MiB | 360 MiB | -72% | 360 MiB | -72% |
+| 32K | 2560 MiB | 720 MiB | -72% | 720 MiB | -72% |
+
+### Peak Memory
+
+| Context | BF16 | OSCAR INT4 | Delta vs BF16 | plain INT4 | Delta vs BF16 |
+|---|---:|---:|---:|---:|---:|
+| 512 | 3424 MiB | 3400 MiB | -1% / -24 MiB | 3610 MiB | +5% / +186 MiB |
+| 2K | 3810 MiB | 3690 MiB | -3% / -120 MiB | 3696 MiB | -3% / -114 MiB |
+| 8K | 4286 MiB | 3830 MiB | -11% / -456 MiB | 3830 MiB | -11% / -456 MiB |
+| 16K | 4970 MiB | 4026 MiB | -19% / -944 MiB | 4026 MiB | -19% / -944 MiB |
+| 32K | 6254 MiB | 4418 MiB | -29% / -1836 MiB | 4418 MiB | -29% / -1836 MiB |
+
+### Prefill
+
+| Context | BF16 | OSCAR INT4 | Delta vs BF16 | plain INT4 | Delta vs BF16 |
+|---|---:|---:|---:|---:|---:|
+| 512 | 12845 tok/s | 11464 tok/s | -11% | 12327 tok/s | -4% |
+| 2K | 15292 tok/s | 13758 tok/s | -10% | 14652 tok/s | -4% |
+| 8K | 12420 tok/s | 11428 tok/s | -8% | 12072 tok/s | -3% |
+| 16K | 9806 tok/s | 9264 tok/s | -6% | 9675 tok/s | -1% |
+| 32K | 6830 tok/s | 6632 tok/s | -3% | 6821 tok/s | 0% |
+
+The INT4 KV pool is consistently about 72% smaller than BF16. The peak-memory
+benefit becomes more visible at longer context; at 32K, OSCAR INT4 saves
+1836 MiB peak memory in this sweep while staying within about 3% of BF16
+prefill throughput.
 
 ## Accuracy
 
