@@ -139,25 +139,54 @@ run.
 
 Benchmarks: GPQA, GSM8K, MATH-500, HumanEval, LiveCodeBench v6, and AIME25.
 This llama.cpp branch reports BF16, OSCAR INT4, and plain INT4 on Granite 4.0
-1B through `llama-server`, matching the SGLang branch table format.
+1B through `llama-server`, matching the SGLang branch table shape but not the
+same backend or KV precision.
 
-Accuracy comparison:
+Latest clean llama.cpp INT4 rerun:
+`runs/granite_accuracy_int4_verify_20260706T101520Z/`.
 
 | Benchmark | Metric | BF16 | OSCAR INT4 | Δ vs BF16 | Plain INT4 | Δ vs BF16 |
 |---|---|---:|---:|---:|---:|---:|
-| **GPQA** | Score | 27.78 | 27.78 | **0.00 pt** | 26.77 | **-1.01 pt** |
-| **GSM8K** | Accuracy | 61.50 | 56.00 | **-5.50 pt** | 58.00 | **-3.50 pt** |
-| **MATH500** | Score | 44.00 | 42.00 | **-2.00 pt** | 42.40 | **-1.60 pt** |
-| **LCB V6** | Pass@1 | 5.71 | 5.71 | **0.00 pt** | 5.71 | **0.00 pt** |
-| **HumanEval** | Pass@1 | 41.46 | 44.51 | **+3.05 pt** | 38.41 | **-3.05 pt** |
-| **HumanEval** | Pass@2 | 53.66 | 54.27 | **+0.61 pt** | 49.39 | **-4.27 pt** |
-| **HumanEval** | Pass@5 | 64.02 | 64.63 | **+0.61 pt** | 63.41 | **-0.61 pt** |
+| **GPQA** | Score | 28.79 | 26.26 | **-2.53 pt** | 28.79 | **0.00 pt** |
+| **GSM8K** | Accuracy | 61.00 | 60.50 | **-0.50 pt** | 56.50 | **-4.50 pt** |
+| **MATH500** | Score | 44.40 | 42.60 | **-1.80 pt** | 41.40 | **-3.00 pt** |
+| **HumanEval** | Pass@1 | 40.24 | 51.22 | **+10.98 pt** | 41.46 | **+1.22 pt** |
+| **HumanEval** | Pass@2 | 48.17 | 58.54 | **+10.37 pt** | 51.83 | **+3.66 pt** |
+| **HumanEval** | Pass@5 | 62.80 | 67.07 | **+4.27 pt** | 65.24 | **+2.44 pt** |
+| **AIME25** | Score | 6.67 | 6.67 | **0.00 pt** | 3.33 | **-3.33 pt** |
+
+LiveCodeBench v6 did not complete in this clean rerun because the
+`livecodebench/code_generation_lite` dataset was not locally cached and the
+dataset fetch stalled before loading problems. Historical LCB v6 data from
+`runs/granite_accuracy_full_20260705T103055Z/` was `5.71` Pass@1 for BF16,
+OSCAR INT4, and plain INT4, but it is not part of the clean rerun above.
+
+The positive HumanEval deltas should be treated as sampling noise rather than
+evidence that INT4 improves the model. The useful conclusion is that llama.cpp
+`q4_0/q4_0` KV does not show the severe accuracy collapse seen in earlier INT2
+experiments.
+
+### SGLang Branch Comparison
+
+The SGLang branch used a different serving stack and INT2-oriented KV path, so
+the numbers below are a reference point for behavior, not an apples-to-apples
+implementation comparison with llama.cpp INT4.
+
+| Benchmark | Metric | SGLang BF16 | SGLang OSCAR INT2 | Δ vs BF16 | SGLang Plain INT2 | Δ vs BF16 |
+|---|---|---:|---:|---:|---:|---:|
+| **GPQA** | Score | 23.74 | 24.24 | **+0.50 pt** | 15.66 | **-8.08 pt** |
+| **GSM8K** | Accuracy | 56.00 | 54.50 | **-1.50 pt** | 3.00 | **-53.00 pt** |
+| **MATH500** | Score | 7.40 | 7.20 | **-0.20 pt** | 0.20 | **-7.20 pt** |
+| **LCB V6** | Pass@1 | 7.87 | 6.92 | **-0.95 pt** | 0.00 | **-7.87 pt** |
+| **HumanEval** | Pass@1 | 32.93 | 12.68 | **-20.25 pt** | 0.00 | **-32.93 pt** |
+| **HumanEval** | Pass@2 | 33.66 | 19.88 | **-13.78 pt** | 0.00 | **-33.66 pt** |
+| **HumanEval** | Pass@5 | 34.76 | 32.93 | **-1.83 pt** | 0.00 | **-34.76 pt** |
 | **AIME25** | Score | 0.00 | 0.00 | **0.00 pt** | 0.00 | **0.00 pt** |
 
-These are the current llama.cpp harness measurements. GPQA and LCB v6 match BF16,
-HumanEval is slightly ahead of BF16 after the grader fix, while GSM8K and
-MATH500 remain below BF16. Plain INT4 is close on MATH500 and HumanEval Pass@5
-but trails BF16 on the other metrics.
+The main cross-branch takeaway is that SGLang INT2 and llama.cpp INT4 are
+different regimes. INT2 is much more aggressive and showed large drops on
+plain INT2 and HumanEval, while llama.cpp INT4 remains close to BF16 on the
+current non-LCB rerun.
 
 Accuracy outputs are generated locally under `runs/<accuracy_dir>/`:
 
