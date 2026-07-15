@@ -1,0 +1,15 @@
+{
+  "format_version": 1,
+  "source": "third_party/OSCAR/examples/llama-eval",
+  "datasets": [
+    "gpqa",
+    "gsm8k"
+  ],
+  "counts": {
+    "gpqa": 198,
+    "gsm8k": 100
+  },
+  "seed": 1234,
+  "rows": 298,
+  "output": "data\\calibration_prompts_gpqa_gsm8k.jsonl"
+}
